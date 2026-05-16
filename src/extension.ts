@@ -7,52 +7,35 @@ import * as os from 'os';
 import { spawn, spawnSync } from 'child_process';
 
 // ============================================================
+// Extracted utilities (Step 1 refactoring)
+// ============================================================
+import {
+    gitExec, gitExecSafe, gitRun,
+    validateGitRemoteUrl, isGitAvailable, classifyGitError, GitErrorKind,
+    getRemoteDefaultBranch, ensureInitialCommit, ensureBrainGitignore,
+    safeResolveInside, safeBasename
+} from './utils/git';
+import {
+    _pythonCmd, _invalidatePythonCmdCache,
+    _isPythonMissing, _pythonMissingHint, runCommandCaptured
+} from './utils/python';
+import {
+    getConfig, _isLMStudioEngine,
+    _loadPrompt, _loadToolSeed,
+    MAX_HTTP_BODY, MAX_STREAM_BUFFER, MAX_CONTEXT_SIZE, EXCLUDED_DIRS
+} from './utils/config';
+
+// ============================================================
 // Security helpers
 // ============================================================
 
-const MAX_HTTP_BODY = 5 * 1024 * 1024; // 5MB cap on /api/* request bodies
-const MAX_STREAM_BUFFER = 2 * 1024 * 1024; // 2MB cap on per-stream line buffer
-const MAX_FILE_NAME_LEN = 200;
+// [Moved to utils/config.ts] MAX_HTTP_BODY, MAX_STREAM_BUFFER
 
-/**
- * Run a git subcommand with argv form (no shell interpolation).
- * Returns stdout on success, throws on failure. Never blocks longer than `timeout`.
- */
-function gitExec(args: string[], cwd: string, timeout = 15000): string {
-    const res = spawnSync('git', args, {
-        cwd,
-        encoding: 'utf-8',
-        timeout,
-        env: { ...process.env, GIT_TERMINAL_PROMPT: '0' } // never block on credential prompt
-    });
-    if (res.error) throw res.error;
-    if (res.status !== 0) {
-        const err: any = new Error(`git ${args[0]} failed: ${res.stderr?.trim() || 'unknown'}`);
-        err.code = res.status;
-        err.stderr = res.stderr;
-        throw err;
-    }
-    return res.stdout || '';
-}
+// [Moved to utils/git.ts] gitExec
 
-/** Same as gitExec but swallows errors and returns null. */
-function gitExecSafe(args: string[], cwd: string, timeout = 15000): string | null {
-    try { return gitExec(args, cwd, timeout); }
-    catch { return null; }
-}
+// [Moved to utils/git.ts] gitExecSafe
 
-/**
- * Resolve `relPath` against `root` and confirm the result stays within `root`.
- * Returns absolute path on success, null if traversal is detected.
- */
-function safeResolveInside(root: string, relPath: string): string | null {
-    if (typeof relPath !== 'string' || relPath.length === 0) return null;
-    const resolvedRoot = path.resolve(root);
-    const abs = path.resolve(resolvedRoot, relPath);
-    const rel = path.relative(resolvedRoot, abs);
-    if (rel.startsWith('..') || path.isAbsolute(rel)) return null;
-    return abs;
-}
+// [Moved to utils/git.ts] safeResolveInside
 
 /* v2.89.93 — 자유로운 경로 해석. 사용자가 "~/Documents/foo.md", "$HOME/x",
    절대경로 모두 자연스럽게 사용할 수 있어야 함. 예전 safeResolveInside는
@@ -353,13 +336,7 @@ function _openInDefaultApp(targetPath: string): { ok: boolean; message: string }
  * Sanitize a filename: remove path separators / traversal segments / control chars.
  * Returns a safe basename (never a path) or null if nothing usable remains.
  */
-function safeBasename(name: string): string | null {
-    if (typeof name !== 'string') return null;
-    // Drop any path components — only the final segment is allowed.
-    const base = path.basename(name).replace(/[\x00-\x1f\\/:*?"<>|]/g, '_').trim();
-    if (!base || base === '.' || base === '..') return null;
-    return base.slice(0, MAX_FILE_NAME_LEN);
-}
+// [Moved to utils/git.ts] safeBasename
 
 /**
  * Drain an http request body with a hard size cap. Resolves to the body string,
@@ -387,117 +364,21 @@ function readRequestBody(req: http.IncomingMessage, maxBytes = MAX_HTTP_BODY): P
  * Validate a remote git URL. Only http(s) and git@host:owner/repo forms are accepted.
  * Returns the cleaned URL or null when unsafe.
  */
-function validateGitRemoteUrl(url: string): string | null {
-    if (typeof url !== 'string') return null;
-    // 사용자가 흔히 붙여넣는 잡음 제거: 공백, 끝 슬래시, 쿼리스트링/프래그먼트
-    let trimmed = url.trim().replace(/[?#].*$/, '').replace(/\/+$/, '');
-    if (!trimmed || trimmed.length > 500) return null;
-    // Allowed: https://host/path, http://host/path, git@host:path  (host에는 :포트 허용)
-    const httpsLike = /^https?:\/\/[A-Za-z0-9.-]+(:\d+)?\/[A-Za-z0-9._\-/]+?(\.git)?$/;
-    const sshLike = /^git@[A-Za-z0-9.-]+:[A-Za-z0-9._\-/]+?(\.git)?$/;
-    if (!httpsLike.test(trimmed) && !sshLike.test(trimmed)) return null;
-    return trimmed;
-}
+// [Moved to utils/git.ts] validateGitRemoteUrl
 
 /** Detect whether `git` is on PATH. Cached after first call. */
-let _gitAvailableCache: boolean | null = null;
-function isGitAvailable(): boolean {
-    if (_gitAvailableCache !== null) return _gitAvailableCache;
-    try {
-        const res = spawnSync('git', ['--version'], { encoding: 'utf-8', timeout: 5000 });
-        _gitAvailableCache = res.status === 0;
-    } catch {
-        _gitAvailableCache = false;
-    }
-    return _gitAvailableCache;
-}
+// [Moved to utils/git.ts] isGitAvailable
 
-type GitErrorKind = 'auth' | 'not_found' | 'rejected' | 'merge_conflict' | 'network' | 'unknown';
+// [Moved to utils/git.ts] classifyGitError, GitErrorKind
 
-/** Translate raw git stderr into a user-actionable Korean message + machine-readable kind. */
-function classifyGitError(stderr: string): { kind: GitErrorKind; message: string } {
-    const s = (stderr || '').toLowerCase();
-    if (
-        s.includes('authentication failed') ||
-        s.includes('could not read username') ||
-        s.includes('terminal prompts disabled') ||
-        s.includes('invalid credentials') ||
-        s.includes('403')
-    ) {
-        return {
-            kind: 'auth',
-            message: 'GitHub 인증이 필요해요. 터미널에서 한 번 `git push`로 로그인 후 다시 시도해주세요.'
-        };
-    }
-    if (s.includes('repository not found') || s.includes('does not appear to be a git repository') || s.includes('404')) {
-        return { kind: 'not_found', message: '그 GitHub 저장소를 못 찾았어요. 주소가 정확한지 확인해주세요. (Private 저장소면 토큰 권한도 필요해요)' };
-    }
-    if (s.includes('rejected') && (s.includes('non-fast-forward') || s.includes('fetch first'))) {
-        return { kind: 'rejected', message: 'GitHub에 새로운 내용이 있어요. 먼저 받아온 후 다시 시도해주세요.' };
-    }
-    if (s.includes('merge conflict') || s.includes('automatic merge failed') || s.includes('overwritten by merge')) {
-        return { kind: 'merge_conflict', message: '같은 줄을 양쪽에서 다르게 고쳐서 자동으로 합칠 수 없어요. 동기화 메뉴에서 직접 골라주세요.' };
-    }
-    if (s.includes('could not resolve host') || s.includes('connection refused') || s.includes('network is unreachable') || s.includes('timed out')) {
-        return { kind: 'network', message: '인터넷 연결을 확인해주세요.' };
-    }
-    return { kind: 'unknown', message: (stderr || '알 수 없는 오류').slice(0, 240) };
-}
+// [Moved to utils/git.ts] getRemoteDefaultBranch
 
-/** Detect remote default branch ("main" / "master" / etc). Returns "main" as fallback. */
-function getRemoteDefaultBranch(cwd: string): string {
-    const out = gitExecSafe(['ls-remote', '--symref', 'origin', 'HEAD'], cwd, 10000);
-    if (out) {
-        const m = out.match(/ref:\s+refs\/heads\/([^\s]+)\s+HEAD/);
-        if (m) return m[1];
-    }
-    return 'main';
-}
+// [Moved to utils/git.ts] ensureInitialCommit
 
-/** Ensure brain folder has at least one commit so `push` has something to ship. */
-function ensureInitialCommit(cwd: string) {
-    if (gitExecSafe(['log', '-1'], cwd) !== null) return; // already has commits
-    const placeholder = path.join(cwd, '.gitkeep');
-    if (!fs.existsSync(placeholder)) fs.writeFileSync(placeholder, '');
-    gitExecSafe(['add', '.'], cwd);
-    // --allow-empty handles the edge case where everything is gitignored
-    gitExecSafe(['commit', '--allow-empty', '-m', 'Initial brain commit'], cwd);
-}
-
-/** Auto-create a sensible .gitignore in the brain folder so junk files don't pollute the remote. */
-function ensureBrainGitignore(brainDir: string) {
-    const gi = path.join(brainDir, '.gitignore');
-    if (fs.existsSync(gi)) return;
-    const lines = [
-        '# SHIN AI auto-generated',
-        '.DS_Store',
-        '.obsidian/',
-        '.trash/',
-        'node_modules/',
-        '*.tmp',
-        '*.log',
-        '.cache/',
-        'Thumbs.db'
-    ];
-    try { fs.writeFileSync(gi, lines.join('\n') + '\n'); }
-    catch { /* non-fatal */ }
-}
+// [Moved to utils/git.ts] ensureBrainGitignore
 
 /** Run a git subcommand and return stdout/stderr/status — used when we need to inspect failures. */
-function gitRun(args: string[], cwd: string, timeout = 30000): { status: number | null; stdout: string; stderr: string; error?: Error } {
-    const res = spawnSync('git', args, {
-        cwd,
-        encoding: 'utf-8',
-        timeout,
-        env: { ...process.env, GIT_TERMINAL_PROMPT: '0' }
-    });
-    return {
-        status: res.status,
-        stdout: res.stdout || '',
-        stderr: res.stderr || '',
-        error: res.error
-    };
-}
+// [Moved to utils/git.ts] gitRun
 
 /** Module-scoped lock so auto-sync and manual sync never run concurrently against the same brain. */
 let _autoSyncRunning = false;
@@ -514,188 +395,19 @@ let _companySyncRunning = false; /* separate lock — brain & company can sync i
      2. 후보 cmd 순차 시도 (which/where 로 실제 존재 확인) — 첫 성공한 거 캐시
      3. 캐시 못 찾으면 fallback 명령 (사용자에게 안내)
 */
-let _pythonCmdCache: string | null = null;
-
-function _detectPythonCmd(): string {
-    /* 1. 사용자 명시 경로 — 절대 경로 또는 명령 이름. 가장 강함. */
-    try {
-        const cfg = vscode.workspace.getConfiguration('connectAiLab');
-        const override = (cfg.get<string>('pythonPath') || '').trim();
-        if (override) {
-            /* 절대 경로면 그대로, 명령 이름이면 PATH 검색 */
-            try {
-                const cp = require('child_process');
-                const r = cp.spawnSync(override, ['--version'], { encoding: 'utf-8', timeout: 4000 });
-                if (r.status === 0 || /python\s/i.test((r.stdout || '') + (r.stderr || ''))) {
-                    return override;
-                }
-            } catch { /* fall through */ }
-        }
-    } catch { /* config 못 읽어도 진행 */ }
-
-    /* 2. 플랫폼별 후보 순차 시도 — which/where 로 실재 확인. */
-    const candidates = process.platform === 'win32'
-        ? ['py -3', 'python3', 'python', 'py']
-        : ['python3', 'python', '/usr/bin/python3', '/usr/local/bin/python3', '/opt/homebrew/bin/python3'];
-    const cp = require('child_process');
-    for (const cand of candidates) {
-        try {
-            /* `py -3` 같은 경우 spawn 시 args 분리 필요. spawnSync 로 직접 시도. */
-            const parts = cand.split(' ');
-            const r = cp.spawnSync(parts[0], parts.slice(1).concat(['--version']), {
-                encoding: 'utf-8', timeout: 4000
-            });
-            const out = (r.stdout || '') + (r.stderr || '');
-            if (r.status === 0 && /python\s+3/i.test(out)) {
-                return cand;
-            }
-            /* 일부 환경에선 status non-zero 인데 --version 출력은 정상. */
-            if (/python\s+3\.\d/i.test(out)) return cand;
-        } catch { /* 다음 후보 시도 */ }
-    }
-    /* 3. 다 실패 — 기존 동작 (사용자가 메시지 보고 진단) */
-    return process.platform === 'win32' ? 'python' : 'python3';
-}
-
-function _pythonCmd(): string {
-    if (_pythonCmdCache) return _pythonCmdCache;
-    _pythonCmdCache = _detectPythonCmd();
-    return _pythonCmdCache;
-}
-
-/* 사용자가 설정 변경하면 캐시 무효화 — 다음 호출 시 재감지. */
-function _invalidatePythonCmdCache() {
-    _pythonCmdCache = null;
-}
-
-/* 9009 (Windows command-not-found) 또는 "Python was not found" 스텁 메시지를
-   감지해서 명확한 한국어 안내로 바꿔줌. */
-function _isPythonMissing(exitCode: number, output: string): boolean {
-    if (exitCode === 9009) return true;
-    if (/Python was not found/i.test(output)) return true;
-    if (/command not found.*python/i.test(output)) return true;
-    if (/No such file or directory.*python/i.test(output)) return true;
-    if (/ENOENT/i.test(output) && /python/i.test(output)) return true;
-    return false;
-}
-function _pythonMissingHint(): string {
-    const detected = _pythonCmd();
-    const platformHint = process.platform === 'win32'
-        ? 'https://www.python.org/downloads/ 에서 Python 3 설치 (Add Python to PATH 체크박스 필수!)'
-        : (process.platform === 'darwin' ? '`brew install python3`' : '`sudo apt install python3`');
-    return `⚠️ Python 3 명령 실행 실패 (시도한 명령: \`${detected}\`).\n` +
-           `🔧 해결:\n` +
-           `  1. ${platformHint}\n` +
-           `  2. 설치 후 안티그래비티/VS Code 완전 종료 → 재실행 (PATH 새로고침 필요)\n` +
-           `  3. 또는 명령 팔레트 → "⚙️ 설정 열기" → \`connectAiLab.pythonPath\` 에 절대 경로 입력 (예: \`/usr/local/bin/python3\` 또는 \`C:\\\\Python311\\\\python.exe\`)\n` +
-           `🔍 본인 PC 의 Python 경로 확인:\n` +
-           (process.platform === 'win32' ? '  - PowerShell: \`Get-Command python, python3, py\`' : '  - 터미널: \`which python3 python py\`');
-}
-
-/**
- * Run a shell command and capture stdout+stderr live so the AI can act on the result.
- * - Streams output to onChunk for live display in the chat
- * - Returns combined output (capped to 15KB) + exit code
- * - Hard timeout to prevent hung processes (default 60s)
- * - Uses default shell ($SHELL or sh) for natural command parsing (npm install, cd && ls, etc.)
- */
-function runCommandCaptured(
-    cmd: string,
-    cwd: string,
-    onChunk: (text: string) => void,
-    timeoutMs = 60000,
-    captureStream: 'both' | 'stdout' = 'both'
-): Promise<{ exitCode: number; output: string; timedOut: boolean }> {
-    return new Promise((resolve) => {
-        const child = spawn(cmd, {
-            cwd,
-            shell: true,
-            env: process.env,
-            stdio: ['ignore', 'pipe', 'pipe']
-        });
-        let buf = '';
-        let timedOut = false;
-        const append = (s: string) => {
-            buf += s;
-            // Hard cap so a runaway log never explodes memory
-            if (buf.length > 30000) buf = buf.slice(-30000);
-            onChunk(s);
-        };
-        child.stdout?.on('data', (d: Buffer) => append(d.toString()));
-        /* v2.89.50 — captureStream='stdout' 일 때 stderr는 무시. 스크립트가 진행 메시지·
-           로그·DeprecationWarning을 stderr로 보내도 채팅창엔 안 새서 깔끔. */
-        if (captureStream === 'both') {
-            child.stderr?.on('data', (d: Buffer) => append(d.toString()));
-        }
-        const killTimer = setTimeout(() => {
-            timedOut = true;
-            /* v2.89.101 — Windows는 SIGTERM/SIGKILL을 무시할 수 있음. taskkill /F 로
-               자식 프로세스 트리 전체 강제 종료. macOS/Linux는 기존대로 SIGTERM → SIGKILL. */
-            if (process.platform === 'win32' && child.pid) {
-                try { spawn('taskkill', ['/PID', String(child.pid), '/T', '/F'], { stdio: 'ignore' }).unref(); }
-                catch { try { child.kill(); } catch { /* gone */ } }
-            } else {
-                try { child.kill('SIGTERM'); } catch { /* already dead */ }
-                setTimeout(() => { try { child.kill('SIGKILL'); } catch { /* gone */ } }, 2000);
-            }
-        }, timeoutMs);
-        child.on('close', (code) => {
-            clearTimeout(killTimer);
-            resolve({ exitCode: code ?? -1, output: buf.slice(-15000), timedOut });
-        });
-        child.on('error', (e) => {
-            clearTimeout(killTimer);
-            resolve({ exitCode: -1, output: `[실행 오류] ${e.message}`, timedOut: false });
-        });
-    });
-}
+// [Moved to utils/python.ts] Python detection & runCommandCaptured
 
 // ============================================================
 // SHIN AI — Full Agentic Local AI for VS Code
 // 100% Offline · File Create · File Edit · Terminal · Multi-file Context
 // ============================================================
 
-// Settings are read from VS Code configuration (File > Preferences > Settings)
-function getConfig() {
-    const cfg = vscode.workspace.getConfiguration('connectAiLab');
-
-    // ollamaUrl: only http(s)://localhost or 127.0.0.1 is meaningful here.
-    let ollamaBase = (cfg.get<string>('ollamaUrl', 'http://127.0.0.1:11434') || '').trim();
-    if (!/^https?:\/\//i.test(ollamaBase)) ollamaBase = 'http://127.0.0.1:11434';
-
-    // 사용자가 선택한 모델은 그대로 유지. 빈 값이면 빈 문자열 반환 —
-    // 호출 사이트가 _autoPickInstalledModel()로 실제 설치된 모델 중 하나를
-    // 자동 선택. 디폴트 'gemma4:e2b' 같은 큰 모델을 강제해서 저사양 PC가
-    // 첫 호출에서 실패하던 문제 방지.
-    const defaultModel = (cfg.get<string>('defaultModel', '') || '').trim();
-
-    // requestTimeout: clamp to [5, 1800] seconds, then convert to ms.
-    const rawTimeout = cfg.get<number>('requestTimeout', 300);
-    const timeoutSec = (typeof rawTimeout === 'number' && isFinite(rawTimeout))
-        ? Math.min(1800, Math.max(5, rawTimeout))
-        : 300;
-
-    return {
-        ollamaBase,
-        defaultModel,
-        maxTreeFiles: 200,
-        timeout: timeoutSec * 1000,
-        localBrainPath: cfg.get<string>('localBrainPath', '') || ''
-    };
-}
+// [Moved to utils/config.ts] getConfig
 
 /* v2.89.91 — 엔진 감지 헬퍼. 이전엔 `isLMStudio = ollamaBase.includes('1234')
    || ollamaBase.includes('v1')` 가 13군데 동일하게 박혀 있었음. LM Studio가
    포트나 경로 컨벤션을 바꾸면 13곳 모두 고쳐야 했고, 한 곳을 빠뜨리면
-   다른 엔진으로 라우팅되는 사고. 한 함수로 통합. */
-function _isLMStudioEngine(ollamaBase: string): boolean {
-    /* v2.89.98 — 진짜 원인 잡힘! v2.89.91 sed 일괄 치환이 이 함수의 본체까지
-       `_isLMStudioEngine(ollamaBase)`로 바꿔버려 자기 자신을 무한 호출 →
-       Maximum call stack. 사용자가 chat·corp 양쪽 모드에서 어떤 LLM 호출도
-       이 헬퍼를 거치니 전 라인이 마비됐었음. 원래 로직 복원: 1234 포트 또는
-       /v1 경로면 LM Studio. */
-    return ollamaBase.includes('1234') || ollamaBase.includes('v1');
-}
+// [Moved to utils/config.ts] _isLMStudioEngine
 
 /* v2.89.66 — _getBrainDir, _isBrainDirExplicitlySet, getCompanyDir, COMPANY_SUBDIR,
    _expandTilde, _resolvePathInput 모두 ./paths.ts 로 이동. 모듈 간 import 일원화. */
@@ -725,48 +437,17 @@ async function _ensureBrainDir(): Promise<string | null> {
     return selectedPath;
 }
 
-const EXCLUDED_DIRS = new Set([
-    'node_modules', '.git', '.vscode', 'out', 'dist', 'build',
-    '.next', '.cache', '__pycache__', '.DS_Store', 'coverage',
-    '.turbo', '.nuxt', '.output', 'vendor', 'target'
-]);
-const MAX_CONTEXT_SIZE = 12_000; // chars
+// [Moved to utils/config.ts] EXCLUDED_DIRS, MAX_CONTEXT_SIZE
 
 /* v2.89.61 — 9개 LLM 프롬프트(SYSTEM, CEO_*, SECRETARY_*) 를 assets/prompts/ 에 .md
    파일로 분리. 익스텐션 로드 시 한 번 읽어 메모리에 캐시. 프롬프트 수정이 코드
    수정 없이 가능 + 줄 수 287줄 절약 + IDE에서 markdown 미리보기로 검토 가능.
    __dirname는 esbuild 번들 출력 위치(extension/out)이라 ../assets/prompts 로 한 단계 위. */
-const _PROMPTS_DIR = path.join(__dirname, '..', 'assets', 'prompts');
-const _promptCache = new Map<string, string>();
-function _loadPrompt(file: string): string {
-    let cached = _promptCache.get(file);
-    if (cached !== undefined) return cached;
-    try {
-        cached = fs.readFileSync(path.join(_PROMPTS_DIR, file), 'utf-8');
-    } catch (e: any) {
-        console.error(`[SHIN AI] prompt 로드 실패 ${file}:`, e?.message || e);
-        cached = '';
-    }
-    _promptCache.set(file, cached);
-    return cached;
-}
+// [Moved to utils/config.ts] _loadPrompt
 
 /* v2.89.62 — 11개 Python 도구 + 11개 README 를 assets/tool-seeds/<agent>/<tool>.{py,md} 로 분리.
    각 _seed* 함수에서 lazy load. assets/tool-seeds/secretary/telegram_setup.py 같은 형태. */
-const _TOOL_SEEDS_DIR = path.join(__dirname, '..', 'assets', 'tool-seeds');
-const _toolSeedCache = new Map<string, string>();
-function _loadToolSeed(rel: string): string {
-    let cached = _toolSeedCache.get(rel);
-    if (cached !== undefined) return cached;
-    try {
-        cached = fs.readFileSync(path.join(_TOOL_SEEDS_DIR, rel), 'utf-8');
-    } catch (e: any) {
-        console.error(`[SHIN AI] tool seed 로드 실패 ${rel}:`, e?.message || e);
-        cached = '';
-    }
-    _toolSeedCache.set(rel, cached);
-    return cached;
-}
+// [Moved to utils/config.ts] _loadToolSeed
 
 const SYSTEM_PROMPT = _loadPrompt('system.md');
 // ============================================================
