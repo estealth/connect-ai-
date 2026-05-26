@@ -471,7 +471,7 @@ External APIs
 https://antigravity.google/
 
 # 2. Connect AI vsix 다운로드 + 설치
-code --install-extension connect-ai-lab-2.89.153.vsix --force
+code --install-extension shin-ai-2.89.153.vsix --force
 
 # 3. LM Studio (또는 Ollama) 설치 + 모델 다운로드
 qwen2.5-7b-instruct 또는 llama-3.2-3b (16K context)
@@ -562,7 +562,7 @@ qwen2.5-7b-instruct 또는 llama-3.2-3b (16K context)
 🌐 https://github.com/wonseokjung/connect-ai
 📧 wonseokjung1987@gmail.com
 🎥 YouTube: @wonseokjung
-📦 Latest: connect-ai-lab-2.89.153.vsix
+📦 Latest: shin-ai-2.89.153.vsix
 ```
 
 **Made with 💕 in Korea — for the world.**

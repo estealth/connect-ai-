@@ -12,6 +12,34 @@
  */
 
 import * as os from 'os';
+import { exec } from 'child_process';
+
+export function getGpuInfo(): Promise<string> {
+  return new Promise((resolve) => {
+    if (os.platform() === 'win32') {
+      exec('powershell -Command "(Get-CimInstance Win32_VideoController | Select-Object Name).Name -join \', \'"', (err, stdout) => {
+        if (!err && stdout) resolve(stdout.trim());
+        else resolve('GPU 정보 확인 불가');
+      });
+    } else if (os.platform() === 'darwin') {
+      exec('system_profiler SPDisplaysDataType | grep "Chipset Model"', (err, stdout) => {
+        if (!err && stdout) {
+          const gpus = stdout.split('\\n').map(l => l.split(':')[1]).filter(Boolean).map(s => s.trim());
+          resolve(gpus.join(', ') || 'Apple Silicon / Mac GPU');
+        } else resolve('Mac GPU 정보 확인 불가');
+      });
+    } else if (os.platform() === 'linux') {
+      exec('lspci | grep VGA', (err, stdout) => {
+        if (!err && stdout) {
+          const gpus = stdout.split('\\n').map(l => l.split(':').pop()).filter(Boolean).map(s => s?.trim());
+          resolve(gpus.join(', ') || 'Linux GPU 정보 확인 불가');
+        } else resolve('Linux GPU 정보 확인 불가');
+      });
+    } else {
+      resolve('지원되지 않는 OS');
+    }
+  });
+}
 
 export type SystemSpecs = {
   totalRamGB: number;

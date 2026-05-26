@@ -1,96 +1,40 @@
-/* SHIN AI — Configuration Utilities
- *
- * extension.ts에서 추출된 설정 관리 및 프롬프트/도구 로딩 유틸리티.
- */
-
+/* SHIN AI — Configuration Utilities */
 import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
+import {
+    DEFAULT_OLLAMA_URL, DEFAULT_REQUEST_TIMEOUT_SEC, MAX_REQUEST_TIMEOUT_SEC,
+    MIN_REQUEST_TIMEOUT_SEC, MAX_TREE_FILES, LM_STUDIO_PORT
+} from '../constants';
 
-// ============================================================
-// VS Code Configuration
-// ============================================================
-
-/** Read and validate the extension configuration from VS Code settings. */
 export function getConfig() {
-    const cfg = vscode.workspace.getConfiguration('connectAiLab');
-
-    let ollamaBase = (cfg.get<string>('ollamaUrl', 'http://127.0.0.1:11434') || '').trim();
-    if (!/^https?:\/\//i.test(ollamaBase)) ollamaBase = 'http://127.0.0.1:11434';
-
+    const cfg = vscode.workspace.getConfiguration('shinAi');
+    let ollamaBase = (cfg.get<string>('ollamaUrl', DEFAULT_OLLAMA_URL) || '').trim();
+    if (!/^https?:\/\//i.test(ollamaBase)) ollamaBase = DEFAULT_OLLAMA_URL;
     const defaultModel = (cfg.get<string>('defaultModel', '') || '').trim();
-
-    const rawTimeout = cfg.get<number>('requestTimeout', 300);
+    const rawTimeout = cfg.get<number>('requestTimeout', DEFAULT_REQUEST_TIMEOUT_SEC);
     const timeoutSec = (typeof rawTimeout === 'number' && isFinite(rawTimeout))
-        ? Math.min(1800, Math.max(5, rawTimeout))
-        : 300;
-
+        ? Math.min(MAX_REQUEST_TIMEOUT_SEC, Math.max(MIN_REQUEST_TIMEOUT_SEC, rawTimeout))
+        : DEFAULT_REQUEST_TIMEOUT_SEC;
     return {
         ollamaBase,
         defaultModel,
-        maxTreeFiles: 200,
+        maxTreeFiles: MAX_TREE_FILES,
         timeout: timeoutSec * 1000,
         localBrainPath: cfg.get<string>('localBrainPath', '') || ''
     };
 }
 
-// ============================================================
-// Engine detection
-// ============================================================
-
-/* LM Studio가 포트나 경로 컨벤션을 바꾸면 한 곳만 고치면 됨. */
 export function _isLMStudioEngine(ollamaBase: string): boolean {
-    return ollamaBase.includes('1234') || ollamaBase.includes('v1');
+    return ollamaBase.includes(LM_STUDIO_PORT) || ollamaBase.includes('v1');
 }
 
-// ============================================================
-// Prompt & Tool Seed loading
-// ============================================================
-
-const _PROMPTS_DIR = path.join(__dirname, '..', 'assets', 'prompts');
-const _promptCache = new Map<string, string>();
-
-/** Load an LLM prompt template from assets/prompts/. Cached after first load. */
 export function _loadPrompt(file: string): string {
-    let cached = _promptCache.get(file);
-    if (cached !== undefined) return cached;
-    try {
-        cached = fs.readFileSync(path.join(_PROMPTS_DIR, file), 'utf-8');
-    } catch (e: any) {
-        console.error(`[SHIN AI] prompt 로드 실패 ${file}:`, e?.message || e);
-        cached = '';
-    }
-    _promptCache.set(file, cached);
-    return cached;
+    const dir = path.join(__dirname, '..', 'assets', 'prompts');
+    try { return fs.readFileSync(path.join(dir, file), 'utf-8'); } catch { return ''; }
 }
 
-const _TOOL_SEEDS_DIR = path.join(__dirname, '..', 'assets', 'tool-seeds');
-const _toolSeedCache = new Map<string, string>();
-
-/** Load a tool seed script/readme from assets/tool-seeds/<agent>/<tool>.{py,md}. Cached. */
 export function _loadToolSeed(rel: string): string {
-    let cached = _toolSeedCache.get(rel);
-    if (cached !== undefined) return cached;
-    try {
-        cached = fs.readFileSync(path.join(_TOOL_SEEDS_DIR, rel), 'utf-8');
-    } catch (e: any) {
-        console.error(`[SHIN AI] tool-seed 로드 실패 ${rel}:`, e?.message || e);
-        cached = '';
-    }
-    _toolSeedCache.set(rel, cached);
-    return cached;
+    const dir = path.join(__dirname, '..', 'assets', 'tool-seeds');
+    try { return fs.readFileSync(path.join(dir, rel), 'utf-8'); } catch { return ''; }
 }
-
-// ============================================================
-// Constants
-// ============================================================
-
-export const MAX_HTTP_BODY = 5 * 1024 * 1024;      // 5MB cap on /api/* request bodies
-export const MAX_STREAM_BUFFER = 2 * 1024 * 1024;  // 2MB cap on per-stream line buffer
-export const MAX_CONTEXT_SIZE = 12_000;             // chars for context window
-
-export const EXCLUDED_DIRS = new Set([
-    'node_modules', '.git', '.vscode', 'out', 'dist', 'build',
-    '.next', '.cache', '__pycache__', '.DS_Store', 'coverage',
-    '.turbo', '.nuxt', '.output', 'vendor', 'target'
-]);

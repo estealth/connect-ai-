@@ -132,3 +132,7 @@ export const AGENTS: Record<string, AgentDef> = {
 
 export const AGENT_ORDER = ['ceo', 'youtube', 'instagram', 'designer', 'developer', 'business', 'secretary', 'editor', 'writer', 'researcher'];
 export const SPECIALIST_IDS = ['youtube', 'instagram', 'designer', 'developer', 'business', 'secretary', 'editor', 'writer', 'researcher'];
+
+export const ALWAYS_ON_AGENTS = new Set(['ceo']);
+export const LOCKED_AGENTS_DEFAULT: Record<string, boolean> = { editor: true };
+

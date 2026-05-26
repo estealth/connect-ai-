@@ -73,7 +73,7 @@ $env:PATH = [System.Environment]::GetEnvironmentVariable("PATH", "Machine") + ";
 4. **`README.md`** — 전체 문서
 
 ### 설정 키는 변경하지 않음
-- `connectAiLab.*` 설정 키는 그대로 유지 (변경 시 기존 설정 호환성 깨짐)
+- `shinAi.*` 설정 키는 그대로 유지 (변경 시 기존 설정 호환성 깨짐)
 - 사용자에게 보이는 title/description만 변경
 
 ---
@@ -111,13 +111,13 @@ interface AgentDef {
 
 | 설정 키 | 기본값 | 설명 |
 |---------|--------|------|
-| `connectAiLab.ollamaUrl` | `http://127.0.0.1:11434` | AI 서버 주소 |
-| `connectAiLab.defaultModel` | (빈값=자동감지) | 사용할 모델명 |
-| `connectAiLab.localBrainPath` | `~/.shin-ai-brain` | 뇌 폴더 경로 |
-| `connectAiLab.requestTimeout` | 300 | AI 응답 타임아웃(초) |
-| `connectAiLab.autoCycleEnabled` | true | 자율 사이클 ON/OFF |
-| `connectAiLab.dailyBriefingTime` | "09:00" | 일일 브리핑 시각 |
-| `connectAiLab.secondBrainRepo` | (빈값) | 뇌 GitHub 백업 레포 |
+| `shinAi.ollamaUrl` | `http://127.0.0.1:11434` | AI 서버 주소 |
+| `shinAi.defaultModel` | (빈값=자동감지) | 사용할 모델명 |
+| `shinAi.localBrainPath` | `~/.shin-ai-brain` | 뇌 폴더 경로 |
+| `shinAi.requestTimeout` | 300 | AI 응답 타임아웃(초) |
+| `shinAi.autoCycleEnabled` | true | 자율 사이클 ON/OFF |
+| `shinAi.dailyBriefingTime` | "09:00" | 일일 브리핑 시각 |
+| `shinAi.secondBrainRepo` | (빈값) | 뇌 GitHub 백업 레포 |
 
 ---
 

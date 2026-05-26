@@ -1,14 +1,14 @@
 {
   "name": "shin-ai-agent",
-  "displayName": "SHIN AI — 나만의 1인기업 AI 에이전트",
-  "description": "1인기업 AI 워크스테이션. 로컬 AI로 코딩, 지식관리, 자동화를 24시간 운영합니다. Ollama/LM Studio 기반. 100% 오프라인.",
-  "version": "1.0.0",
+  "displayName": "SHIN AI",
+  "description": "1\uc778\uae30\uc5c5 AI \uc6cc\ud06c\uc2a4\ud14c\uc774\uc158. \ub85c\uceec AI\ub85c \ucf54\ub529, \uc9c0\uc2dd\uad00\ub9ac, \uc790\ub3d9\ud654\ub97c 24\uc2dc\uac04 \uc6b4\uc601\ud569\ub2c8\ub2e4. Ollama/LM Studio \uae30\ubc18. 100% \uc624\ud504\ub77c\uc778.",
+  "version": "1.0.10",
   "publisher": "shin-ai",
   "license": "MIT",
   "icon": "assets/icon.png",
   "repository": {
     "type": "git",
-    "url": ""
+    "url": "https://github.com/shin-ai/shin-ai-agent.git"
   },
   "engines": {
     "vscode": "^1.80.0"
@@ -30,10 +30,10 @@
     "agent",
     "agent-team",
     "second-brain",
-    "1인기업",
+    "1\uc778\uae30\uc5c5",
     "solopreneur",
     "code-generation",
-    "connect-ai-lab",
+    "shin-ai",
     "copilot"
   ],
   "activationEvents": [
@@ -43,130 +43,130 @@
   "contributes": {
     "commands": [
       {
-        "command": "connect-ai-lab.newChat",
-        "title": "Connect AI: New Chat",
+        "command": "shin-ai.newChat",
+        "title": "SHIN AI: New Chat",
         "icon": "$(add)"
       },
       {
-        "command": "connect-ai-lab.openSettings",
-        "title": "Connect AI: ⚙️ 설정 열기"
+        "command": "shin-ai.openSettings",
+        "title": "SHIN AI: \u2699\ufe0f \uc124\uc815 \uc5f4\uae30"
       },
       {
-        "command": "connect-ai-lab.exportChat",
-        "title": "Connect AI: Export Chat as Markdown"
+        "command": "shin-ai.exportChat",
+        "title": "SHIN AI: Export Chat as Markdown"
       },
       {
-        "command": "connect-ai-lab.explainSelection",
-        "title": "Connect AI: Explain Selected Code"
+        "command": "shin-ai.explainSelection",
+        "title": "SHIN AI: Explain Selected Code"
       },
       {
-        "command": "connect-ai-lab.focusChat",
-        "title": "Connect AI: Focus Chat Input"
+        "command": "shin-ai.focusChat",
+        "title": "SHIN AI: Focus Chat Input"
       },
       {
-        "command": "connect-ai-lab.showBrainNetwork",
-        "title": "Connect AI: Show Brain Topology 🧠"
+        "command": "shin-ai.showBrainNetwork",
+        "title": "SHIN AI: Show Brain Topology \ud83e\udde0"
       },
       {
-        "command": "connect-ai-lab.changeCompanyDir",
-        "title": "Connect AI: 회사 폴더 변경 🏢"
+        "command": "shin-ai.changeCompanyDir",
+        "title": "SHIN AI: \ud68c\uc0ac \ud3f4\ub354 \ubcc0\uacbd \ud83c\udfe2"
       },
       {
-        "command": "connect-ai-lab.connectCompanyRepo",
-        "title": "Connect AI: 회사 GitHub 연결 ☁️"
+        "command": "shin-ai.connectCompanyRepo",
+        "title": "SHIN AI: \ud68c\uc0ac GitHub \uc5f0\uacb0 \u2601\ufe0f"
       },
       {
-        "command": "connect-ai-lab.connectGoogleCalendarWrite",
-        "title": "Connect AI: Google Calendar 자동 일정 연결 📅"
+        "command": "shin-ai.connectGoogleCalendarWrite",
+        "title": "SHIN AI: Google Calendar \uc790\ub3d9 \uc77c\uc815 \uc5f0\uacb0 \ud83d\udcc5"
       },
       {
-        "command": "connectAiLab.tasks.refresh",
-        "title": "할 일 새로고침",
+        "command": "shinAi.tasks.refresh",
+        "title": "\ud560 \uc77c \uc0c8\ub85c\uace0\uce68",
         "category": "SHIN AI",
         "icon": "$(refresh)"
       },
       {
-        "command": "connectAiLab.tasks.markDone",
+        "command": "shinAi.tasks.markDone",
         "title": "완료 처리",
         "category": "SHIN AI",
         "icon": "$(check)"
       },
       {
-        "command": "connectAiLab.tasks.cancel",
+        "command": "shinAi.tasks.cancel",
         "title": "취소",
         "category": "SHIN AI",
         "icon": "$(close)"
       },
       {
-        "command": "connectAiLab.tasks.setPriority",
+        "command": "shinAi.tasks.setPriority",
         "title": "우선순위 변경",
         "category": "SHIN AI",
         "icon": "$(arrow-up)"
       },
       {
-        "command": "connectAiLab.tasks.openTrackerJson",
-        "title": "tracker.json 열기",
+        "command": "shinAi.tasks.openTrackerJson",
+        "title": "tracker.json \uc5f4\uae30",
         "category": "SHIN AI",
         "icon": "$(file-code)"
       },
       {
-        "command": "connectAiLab.dailyBriefing.fireNow",
-        "title": "지금 데일리 브리핑 발사",
+        "command": "shinAi.dailyBriefing.fireNow",
+        "title": "\uc9c0\uae08 \ub370\uc77c\ub9ac \ube0c\ub9ac\ud551 \ubc1c\uc0ac",
         "category": "SHIN AI",
         "icon": "$(megaphone)"
       },
       {
-        "command": "connectAiLab.diagnoseConnection",
-        "title": "🔍 LLM 연결 진단 (Ollama / LM Studio)",
+        "command": "shinAi.diagnoseConnection",
+        "title": "\ud83d\udd0d LLM \uc5f0\uacb0 \uc9c4\ub2e8 (Ollama / LM Studio)",
         "category": "SHIN AI",
         "icon": "$(pulse)"
       },
       {
-        "command": "connectAiLab.youtube.refreshCommentQueue",
-        "title": "YouTube 댓글 답장 큐 갱신",
+        "command": "shinAi.youtube.refreshCommentQueue",
+        "title": "YouTube \ub313\uae00 \ub2f5\uc7a5 \ud050 \uac31\uc2e0",
         "category": "SHIN AI",
         "icon": "$(comment-discussion)"
       },
       {
-        "command": "connectAiLab.developer.scaffoldProject",
-        "title": "Developer: 새 프로젝트 만들기",
+        "command": "shinAi.developer.scaffoldProject",
+        "title": "Developer: \uc0c8 \ud504\ub85c\uc81d\ud2b8 \ub9cc\ub4e4\uae30",
         "category": "SHIN AI",
         "icon": "$(file-directory-create)"
       },
       {
-        "command": "connectAiLab.skill.saveLast",
-        "title": "방금 산출물 → 스킬로 저장 💎",
+        "command": "shinAi.skill.saveLast",
+        "title": "\ubc29\uae08 \uc0b0\ucd9c\ubb3c \u2192 \uc2a4\ud0ac\ub85c \uc800\uc7a5 \ud83d\udc8e",
         "category": "SHIN AI",
         "icon": "$(star)"
       },
       {
-        "command": "connectAiLab.youtube.connectOAuth",
-        "title": "YouTube OAuth 연결 (Analytics)",
+        "command": "shinAi.youtube.connectOAuth",
+        "title": "YouTube OAuth \uc5f0\uacb0 (Analytics)",
         "category": "SHIN AI",
         "icon": "$(plug)"
       },
       {
-        "command": "connectAiLab.dashboard.open",
-        "title": "우리 회사 (팀 + 오늘 + 채널)",
+        "command": "shinAi.dashboard.open",
+        "title": "시스템 진단",
         "category": "SHIN AI",
         "icon": "$(organization)"
       },
       {
-        "command": "connectAiLab.apiConnections.open",
-        "title": "외부 연결 (API 키 한 곳에서)",
+        "command": "shinAi.apiConnections.open",
+        "title": "\uc678\ubd80 \uc5f0\uacb0 (API \ud0a4 \ud55c \uacf3\uc5d0\uc11c)",
         "category": "SHIN AI",
         "icon": "$(plug)"
       },
       {
-        "command": "connectAiLab.revenueDashboard.open",
-        "title": "💰 매출 대시보드 (PayPal 실시간)",
+        "command": "shinAi.revenueDashboard.open",
+        "title": "\ud83d\udcb0 \ub9e4\ucd9c \ub300\uc2dc\ubcf4\ub4dc (PayPal \uc2e4\uc2dc\uac04)",
         "category": "SHIN AI",
         "icon": "$(graph-line)"
       }
     ],
     "keybindings": [
       {
-        "command": "connect-ai-lab.focusChat",
+        "command": "shin-ai.focusChat",
         "key": "cmd+l",
         "mac": "cmd+l"
       }
@@ -174,37 +174,37 @@
     "menus": {
       "editor/context": [
         {
-          "command": "connect-ai-lab.explainSelection",
+          "command": "shin-ai.explainSelection",
           "when": "editorHasSelection",
           "group": "1_modification"
         }
       ],
       "view/title": [
         {
-          "command": "connectAiLab.tasks.refresh",
-          "when": "view == connectAiLab.tasks",
+          "command": "shinAi.tasks.refresh",
+          "when": "view == shinAi.tasks",
           "group": "navigation"
         },
         {
-          "command": "connectAiLab.tasks.openTrackerJson",
-          "when": "view == connectAiLab.tasks",
+          "command": "shinAi.tasks.openTrackerJson",
+          "when": "view == shinAi.tasks",
           "group": "navigation"
         }
       ],
       "view/item/context": [
         {
-          "command": "connectAiLab.tasks.markDone",
-          "when": "view == connectAiLab.tasks && viewItem == openTask",
+          "command": "shinAi.tasks.markDone",
+          "when": "view == shinAi.tasks && viewItem == openTask",
           "group": "inline@1"
         },
         {
-          "command": "connectAiLab.tasks.cancel",
-          "when": "view == connectAiLab.tasks && viewItem == openTask",
+          "command": "shinAi.tasks.cancel",
+          "when": "view == shinAi.tasks && viewItem == openTask",
           "group": "inline@2"
         },
         {
-          "command": "connectAiLab.tasks.setPriority",
-          "when": "view == connectAiLab.tasks && viewItem == openTask",
+          "command": "shinAi.tasks.setPriority",
+          "when": "view == shinAi.tasks && viewItem == openTask",
           "group": "1_actions"
         }
       ]
@@ -212,90 +212,90 @@
     "viewsContainers": {
       "activitybar": [
         {
-          "id": "connect-ai-lab-sidebar",
+          "id": "shin-ai-sidebar",
           "title": "SHIN AI",
-          "icon": "$(hubot)"
+          "icon": "assets/sidebar-icon.svg"
         }
       ]
     },
     "views": {
-      "connect-ai-lab-sidebar": [
+      "shin-ai-sidebar": [
         {
           "type": "webview",
-          "id": "connect-ai-lab-v2-view",
-          "name": "Chat"
+          "id": "shin-ai-chat-view",
+          "name": "SHIN AI Chat"
         }
       ]
     },
     "configuration": {
       "title": "SHIN AI",
       "properties": {
-        "connectAiLab.ollamaUrl": {
+        "shinAi.ollamaUrl": {
           "type": "string",
           "default": "http://127.0.0.1:11434",
-          "description": "🤖 AI 서버 주소 (보통 자동으로 잡히니 건드리지 않아도 됩니다)"
+          "description": "\ud83e\udd16 AI \uc11c\ubc84 \uc8fc\uc18c (\ubcf4\ud1b5 \uc790\ub3d9\uc73c\ub85c \uc7a1\ud788\ub2c8 \uac74\ub4dc\ub9ac\uc9c0 \uc54a\uc544\ub3c4 \ub429\ub2c8\ub2e4)"
         },
-        "connectAiLab.pythonPath": {
+        "shinAi.pythonPath": {
           "type": "string",
           "default": "",
-          "description": "🐍 Python 3 실행 명령/절대 경로 (비우면 자동 감지). 도구 실행 'exit 1' 또는 'Python was not found' 에러 시 여기에 직접 지정. 윈도우 예: 'py -3' 또는 'C:\\\\Python311\\\\python.exe'. 맥 예: '/opt/homebrew/bin/python3' 또는 'python3'. 변경 후 안티그래비티 재시작."
+          "description": "\ud83d\udc0d Python 3 \uc2e4\ud589 \uba85\ub839/\uc808\ub300 \uacbd\ub85c (\ube44\uc6b0\uba74 \uc790\ub3d9 \uac10\uc9c0). \ub3c4\uad6c \uc2e4\ud589 'exit 1' \ub610\ub294 'Python was not found' \uc5d0\ub7ec \uc2dc \uc5ec\uae30\uc5d0 \uc9c1\uc811 \uc9c0\uc815. \uc708\ub3c4\uc6b0 \uc608: 'py -3' \ub610\ub294 'C:\\\\Python311\\\\python.exe'. \ub9e5 \uc608: '/opt/homebrew/bin/python3' \ub610\ub294 'python3'. \ubcc0\uacbd \ud6c4 \uc548\ud2f0\uadf8\ub798\ube44\ud2f0 \uc7ac\uc2dc\uc791."
         },
-        "connectAiLab.defaultModel": {
+        "shinAi.defaultModel": {
           "type": "string",
           "default": "",
-          "description": "🧠 사용할 AI 모델 이름 (비워두면 설치된 모델 중 가장 작은 것이 자동 선택됨. 직접 지정 예: llama3.2:1b, gemma2:2b, qwen2.5:1.5b)"
+          "description": "\ud83e\udde0 \uc0ac\uc6a9\ud560 AI \ubaa8\ub378 \uc774\ub984 (\ube44\uc6cc\ub450\uba74 \uc124\uce58\ub41c \ubaa8\ub378 \uc911 \uac00\uc7a5 \uc791\uc740 \uac83\uc774 \uc790\ub3d9 \uc120\ud0dd\ub428. \uc9c1\uc811 \uc9c0\uc815 \uc608: llama3.2:1b, gemma2:2b, qwen2.5:1.5b)"
         },
-        "connectAiLab.requestTimeout": {
+        "shinAi.requestTimeout": {
           "type": "number",
           "default": 300,
-          "description": "⏱ AI 응답 대기 시간 (초, 기본 300초 = 5분)"
+          "description": "\u23f1 AI \uc751\ub2f5 \ub300\uae30 \uc2dc\uac04 (\ucd08, \uae30\ubcf8 300\ucd08 = 5\ubd84)"
         },
-        "connectAiLab.streamFirstTokenTimeoutSec": {
+        "shinAi.streamFirstTokenTimeoutSec": {
           "type": "number",
           "default": 240,
-          "description": "🐢 모델 첫 토큰까지 기다리는 시간 (초). 저사양 머신은 모델 로드에 시간 걸려서 60초 안에 첫 응답 못 옴. 기본 240초(4분). 600초(10분)까지 늘려도 OK."
+          "description": "\ud83d\udc22 \ubaa8\ub378 \uccab \ud1a0\ud070\uae4c\uc9c0 \uae30\ub2e4\ub9ac\ub294 \uc2dc\uac04 (\ucd08). \uc800\uc0ac\uc591 \uba38\uc2e0\uc740 \ubaa8\ub378 \ub85c\ub4dc\uc5d0 \uc2dc\uac04 \uac78\ub824\uc11c 60\ucd08 \uc548\uc5d0 \uccab \uc751\ub2f5 \ubabb \uc634. \uae30\ubcf8 240\ucd08(4\ubd84). 600\ucd08(10\ubd84)\uae4c\uc9c0 \ub298\ub824\ub3c4 OK."
         },
-        "connectAiLab.streamIdleTimeoutSec": {
+        "shinAi.streamIdleTimeoutSec": {
           "type": "number",
           "default": 60,
-          "description": "💤 첫 응답 이후 토큰 사이 최대 idle 시간 (초). 한 번 응답 시작하면 보통 빠르게 흘러서 60초면 충분. 모델 hang 감지용."
+          "description": "\ud83d\udca4 \uccab \uc751\ub2f5 \uc774\ud6c4 \ud1a0\ud070 \uc0ac\uc774 \ucd5c\ub300 idle \uc2dc\uac04 (\ucd08). \ud55c \ubc88 \uc751\ub2f5 \uc2dc\uc791\ud558\uba74 \ubcf4\ud1b5 \ube60\ub974\uac8c \ud758\ub7ec\uc11c 60\ucd08\uba74 \ucda9\ubd84. \ubaa8\ub378 hang \uac10\uc9c0\uc6a9."
         },
-        "connectAiLab.localBrainPath": {
+        "shinAi.localBrainPath": {
           "type": "string",
           "default": "",
-          "description": "📁 내 지식 폴더 경로 — 내 PC의 특정 폴더(예: 바탕화면/MyBrain)를 지정하면, 그 안의 .md 파일들이 AI의 지식이 됩니다. 비워두면 기본 폴더를 자동 생성합니다."
+          "description": "\ud83d\udcc1 \ub0b4 \uc9c0\uc2dd \ud3f4\ub354 \uacbd\ub85c \u2014 \ub0b4 PC\uc758 \ud2b9\uc815 \ud3f4\ub354(\uc608: \ubc14\ud0d5\ud654\uba74/MyBrain)\ub97c \uc9c0\uc815\ud558\uba74, \uadf8 \uc548\uc758 .md \ud30c\uc77c\ub4e4\uc774 AI\uc758 \uc9c0\uc2dd\uc774 \ub429\ub2c8\ub2e4. \ube44\uc6cc\ub450\uba74 \uae30\ubcf8 \ud3f4\ub354\ub97c \uc790\ub3d9 \uc0dd\uc131\ud569\ub2c8\ub2e4."
         },
-        "connectAiLab.secondBrainRepo": {
+        "shinAi.secondBrainRepo": {
           "type": "string",
           "default": "",
-          "description": "🔗 두뇌 깃허브 저장소 URL — 내 지식을 클라우드에 백업하고 동기화할 깃허브 저장소 주소. (예: https://github.com/사용자/memory)"
+          "description": "\ud83d\udd17 \ub450\ub1cc \uae43\ud5c8\ube0c \uc800\uc7a5\uc18c URL \u2014 \ub0b4 \uc9c0\uc2dd\uc744 \ud074\ub77c\uc6b0\ub4dc\uc5d0 \ubc31\uc5c5\ud558\uace0 \ub3d9\uae30\ud654\ud560 \uae43\ud5c8\ube0c \uc800\uc7a5\uc18c \uc8fc\uc18c. (\uc608: https://github.com/\uc0ac\uc6a9\uc790/memory)"
         },
-        "connectAiLab.companyRepo": {
+        "shinAi.companyRepo": {
           "type": "string",
           "default": "",
-          "description": "🔗 회사 깃허브 저장소 URL — 회사 폴더를 두뇌와 별도 저장소로 백업할 때 사용. 회사 폴더가 두뇌 안 nested면(기본) 비워두세요(이미 두뇌 repo에 같이 들어감). 회사를 별도 위치(detached)로 분리한 경우에만 의미 있음. 명령 팔레트의 'Connect AI: 회사 GitHub 연결'로도 설정."
+          "description": "\ud83d\udd17 \ud68c\uc0ac \uae43\ud5c8\ube0c \uc800\uc7a5\uc18c URL \u2014 \ud68c\uc0ac \ud3f4\ub354\ub97c \ub450\ub1cc\uc640 \ubcc4\ub3c4 \uc800\uc7a5\uc18c\ub85c \ubc31\uc5c5\ud560 \ub54c \uc0ac\uc6a9. \ud68c\uc0ac \ud3f4\ub354\uac00 \ub450\ub1cc \uc548 nested\uba74(\uae30\ubcf8) \ube44\uc6cc\ub450\uc138\uc694(\uc774\ubbf8 \ub450\ub1cc repo\uc5d0 \uac19\uc774 \ub4e4\uc5b4\uac10). \ud68c\uc0ac\ub97c \ubcc4\ub3c4 \uc704\uce58(detached)\ub85c \ubd84\ub9ac\ud55c \uacbd\uc6b0\uc5d0\ub9cc \uc758\ubbf8 \uc788\uc74c. \uba85\ub839 \ud314\ub808\ud2b8\uc758 'Connect AI: \ud68c\uc0ac GitHub \uc5f0\uacb0'\ub85c\ub3c4 \uc124\uc815."
         },
-        "connectAiLab.companyDir": {
+        "shinAi.companyDir": {
           "type": "string",
           "default": "",
-          "description": "👔 회사 폴더 경로 — 비워두면 두뇌 폴더 안 _company/에 자동 생성됩니다(시각적으로 분리·한 git repo). 절대 경로 또는 ~/로 시작하는 경로를 입력하면 두뇌와 완전히 분리된 별도 위치에 회사 폴더가 만들어집니다(예: 외주 공유용·다른 git repo). 명령 팔레트의 'Connect AI: 회사 폴더 변경'으로도 설정 가능."
+          "description": "\ud83d\udc54 \ud68c\uc0ac \ud3f4\ub354 \uacbd\ub85c \u2014 \ube44\uc6cc\ub450\uba74 \ub450\ub1cc \ud3f4\ub354 \uc548 _company/\uc5d0 \uc790\ub3d9 \uc0dd\uc131\ub429\ub2c8\ub2e4(\uc2dc\uac01\uc801\uc73c\ub85c \ubd84\ub9ac\u00b7\ud55c git repo). \uc808\ub300 \uacbd\ub85c \ub610\ub294 ~/\ub85c \uc2dc\uc791\ud558\ub294 \uacbd\ub85c\ub97c \uc785\ub825\ud558\uba74 \ub450\ub1cc\uc640 \uc644\uc804\ud788 \ubd84\ub9ac\ub41c \ubcc4\ub3c4 \uc704\uce58\uc5d0 \ud68c\uc0ac \ud3f4\ub354\uac00 \ub9cc\ub4e4\uc5b4\uc9d1\ub2c8\ub2e4(\uc608: \uc678\uc8fc \uacf5\uc720\uc6a9\u00b7\ub2e4\ub978 git repo). \uba85\ub839 \ud314\ub808\ud2b8\uc758 'Connect AI: \ud68c\uc0ac \ud3f4\ub354 \ubcc0\uacbd'\uc73c\ub85c\ub3c4 \uc124\uc815 \uac00\ub2a5."
         },
-        "connectAiLab.assetsPath": {
+        "shinAi.assetsPath": {
           "type": "string",
           "default": "",
-          "description": "🎨 (선택) LimeZu Modern Interiors 풀팩 폴더 — 사무실 뷰에 더 풍부한 캐릭터·인테리어를 쓰고 싶을 때만 지정합니다. 비워두면 vsix에 번들된 7개 캐릭터를 자동 사용합니다."
+          "description": "\ud83c\udfa8 (\uc120\ud0dd) LimeZu Modern Interiors \ud480\ud329 \ud3f4\ub354 \u2014 \uc0ac\ubb34\uc2e4 \ubdf0\uc5d0 \ub354 \ud48d\ubd80\ud55c \uce90\ub9ad\ud130\u00b7\uc778\ud14c\ub9ac\uc5b4\ub97c \uc4f0\uace0 \uc2f6\uc744 \ub54c\ub9cc \uc9c0\uc815\ud569\ub2c8\ub2e4. \ube44\uc6cc\ub450\uba74 vsix\uc5d0 \ubc88\ub4e4\ub41c 7\uac1c \uce90\ub9ad\ud130\ub97c \uc790\ub3d9 \uc0ac\uc6a9\ud569\ub2c8\ub2e4."
         },
-        "connectAiLab.autoCycleEnabled": {
+        "shinAi.autoCycleEnabled": {
           "type": "boolean",
           "default": true,
-          "description": "🤖 24시간 자율 사이클 — 켜두면 사용자가 30분 이상 자리를 비웠을 때 CEO가 회사 목표·각 에이전트 개인 목표를 검토해 자동으로 다음 한 스텝을 실행합니다. 에이전트 패널의 토글에서 같이 제어됩니다."
+          "description": "\ud83e\udd16 24\uc2dc\uac04 \uc790\uc728 \uc0ac\uc774\ud074 \u2014 \ucf1c\ub450\uba74 \uc0ac\uc6a9\uc790\uac00 30\ubd84 \uc774\uc0c1 \uc790\ub9ac\ub97c \ube44\uc6e0\uc744 \ub54c CEO\uac00 \ud68c\uc0ac \ubaa9\ud45c\u00b7\uac01 \uc5d0\uc774\uc804\ud2b8 \uac1c\uc778 \ubaa9\ud45c\ub97c \uac80\ud1a0\ud574 \uc790\ub3d9\uc73c\ub85c \ub2e4\uc74c \ud55c \uc2a4\ud15d\uc744 \uc2e4\ud589\ud569\ub2c8\ub2e4. \uc5d0\uc774\uc804\ud2b8 \ud328\ub110\uc758 \ud1a0\uae00\uc5d0\uc11c \uac19\uc774 \uc81c\uc5b4\ub429\ub2c8\ub2e4."
         },
-        "connectAiLab.dailyBriefingTime": {
+        "shinAi.dailyBriefingTime": {
           "type": "string",
           "default": "09:00",
-          "description": "📋 매일 자동 데일리 브리핑 발사 시각 (HH:MM, 24시간 형식). 비워두거나 'off'로 설정하면 자동 발사 안 함. 텔레그램으로 오늘 일정·할 일·어제 회사 활동 카드가 전송됩니다."
+          "description": "\ud83d\udccb \ub9e4\uc77c \uc790\ub3d9 \ub370\uc77c\ub9ac \ube0c\ub9ac\ud551 \ubc1c\uc0ac \uc2dc\uac01 (HH:MM, 24\uc2dc\uac04 \ud615\uc2dd). \ube44\uc6cc\ub450\uac70\ub098 'off'\ub85c \uc124\uc815\ud558\uba74 \uc790\ub3d9 \ubc1c\uc0ac \uc548 \ud568. \ud154\ub808\uadf8\ub7a8\uc73c\ub85c \uc624\ub298 \uc77c\uc815\u00b7\ud560 \uc77c\u00b7\uc5b4\uc81c \ud68c\uc0ac \ud65c\ub3d9 \uce74\ub4dc\uac00 \uc804\uc1a1\ub429\ub2c8\ub2e4."
         },
-        "connectAiLab.secretaryBridgeMode": {
+        "shinAi.secretaryBridgeMode": {
           "type": "string",
           "enum": [
             "off",
@@ -303,12 +303,12 @@
             "full"
           ],
           "enumDescriptions": [
-            "Off — 비서는 텔레그램에서만 활동. 사이드바는 CEO와 직접 대화 (현재 동작)",
-            "출력만 — specialist 산출물 끝에 비서가 한 줄로 사장님께 정리 카드 추가",
-            "풀 브릿지 — 사이드바 입력도 비서가 1차 수신 후 CEO에게 라우팅 또는 직접 응답"
+            "Off \u2014 \ube44\uc11c\ub294 \ud154\ub808\uadf8\ub7a8\uc5d0\uc11c\ub9cc \ud65c\ub3d9. \uc0ac\uc774\ub4dc\ubc14\ub294 CEO\uc640 \uc9c1\uc811 \ub300\ud654 (\ud604\uc7ac \ub3d9\uc791)",
+            "\ucd9c\ub825\ub9cc \u2014 specialist \uc0b0\ucd9c\ubb3c \ub05d\uc5d0 \ube44\uc11c\uac00 \ud55c \uc904\ub85c \uc0ac\uc7a5\ub2d8\uaed8 \uc815\ub9ac \uce74\ub4dc \ucd94\uac00",
+            "\ud480 \ube0c\ub9bf\uc9c0 \u2014 \uc0ac\uc774\ub4dc\ubc14 \uc785\ub825\ub3c4 \ube44\uc11c\uac00 1\ucc28 \uc218\uc2e0 \ud6c4 CEO\uc5d0\uac8c \ub77c\uc6b0\ud305 \ub610\ub294 \uc9c1\uc811 \uc751\ub2f5"
           ],
           "default": "off",
-          "description": "📱 비서 브릿지 모드 — 비서를 사람과 AI 회사 사이의 단일 통로로 만들지 결정. 차이를 직접 체감하면서 멀티에이전트 라우팅 패턴을 학습할 수 있어요."
+          "description": "\ud83d\udcf1 \ube44\uc11c \ube0c\ub9bf\uc9c0 \ubaa8\ub4dc \u2014 \ube44\uc11c\ub97c \uc0ac\ub78c\uacfc AI \ud68c\uc0ac \uc0ac\uc774\uc758 \ub2e8\uc77c \ud1b5\ub85c\ub85c \ub9cc\ub4e4\uc9c0 \uacb0\uc815. \ucc28\uc774\ub97c \uc9c1\uc811 \uccb4\uac10\ud558\uba74\uc11c \uba40\ud2f0\uc5d0\uc774\uc804\ud2b8 \ub77c\uc6b0\ud305 \ud328\ud134\uc744 \ud559\uc2b5\ud560 \uc218 \uc788\uc5b4\uc694."
         }
       }
     }
@@ -316,14 +316,21 @@
   "scripts": {
     "vscode:prepublish": "npm run compile",
     "compile": "esbuild src/extension.ts --bundle --platform=node --external:vscode --outfile=out/extension.js",
+    "compile-tests": "tsc -p ./",
     "watch": "tsc -watch -p ./",
-    "pretest": "npm run compile"
+    "pretest": "npm run compile && npm run compile-tests",
+    "test": "node ./out/test/runTest.js",
+    "test:unit": "mocha out/test/suite/*.test.js"
   },
   "devDependencies": {
+    "@types/mocha": "^10.0.10",
     "@types/node": "18.x",
     "@types/vscode": "^1.80.0",
     "@vercel/ncc": "^0.38.4",
+    "@vscode/test-electron": "^2.5.2",
     "esbuild": "^0.28.0",
+    "glob": "^13.0.6",
+    "mocha": "^11.7.5",
     "typescript": "^5.1.3"
   },
   "dependencies": {

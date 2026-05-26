@@ -147,26 +147,26 @@ my-connect-ai/
 
 | 커맨드 ID | 기능 |
 |-----------|------|
-| `connect-ai-lab.focusChat` | 채팅 사이드바 포커스 (Cmd+L) |
-| `connect-ai-lab.explainSelection` | 선택 코드 설명 |
-| `connectAiLab.openOffice` | 가상 오피스 열기 |
-| `connectAiLab.showBrainNetwork` | 지식 그래프 시각화 |
-| `connectAiLab.tasks.refresh` | 태스크 새로고침 |
-| `connectAiLab.apiConnections.open` | API 연결 패널 |
-| `connectAiLab.revenueDashboard.open` | 매출 대시보드 |
+| `shin-ai.focusChat` | 채팅 사이드바 포커스 (Cmd+L) |
+| `shin-ai.explainSelection` | 선택 코드 설명 |
+| `shinAi.openOffice` | 가상 오피스 열기 |
+| `shinAi.showBrainNetwork` | 지식 그래프 시각화 |
+| `shinAi.tasks.refresh` | 태스크 새로고침 |
+| `shinAi.apiConnections.open` | API 연결 패널 |
+| `shinAi.revenueDashboard.open` | 매출 대시보드 |
 
 #### VS Code 설정 항목
 
 | 키 | 기본값 | 용도 |
 |----|--------|------|
-| `connectAiLab.ollamaUrl` | `http://127.0.0.1:11434` | LLM 서버 주소 |
-| `connectAiLab.defaultModel` | (자동감지) | 사용 모델 |
-| `connectAiLab.localBrainPath` | `~/.shin-ai-brain` | 뇌 폴더 |
-| `connectAiLab.requestTimeout` | 300초 | AI 응답 타임아웃 |
-| `connectAiLab.autoCycleEnabled` | true | 자율 사이클 |
-| `connectAiLab.dailyBriefingTime` | "09:00" | 일일 브리핑 |
-| `connectAiLab.secondBrainRepo` | (빈값) | GitHub 백업 레포 |
-| `connectAiLab.secretaryBridgeMode` | "off" | 비서 브릿지 모드 |
+| `shinAi.ollamaUrl` | `http://127.0.0.1:11434` | LLM 서버 주소 |
+| `shinAi.defaultModel` | (자동감지) | 사용 모델 |
+| `shinAi.localBrainPath` | `~/.shin-ai-brain` | 뇌 폴더 |
+| `shinAi.requestTimeout` | 300초 | AI 응답 타임아웃 |
+| `shinAi.autoCycleEnabled` | true | 자율 사이클 |
+| `shinAi.dailyBriefingTime` | "09:00" | 일일 브리핑 |
+| `shinAi.secondBrainRepo` | (빈값) | GitHub 백업 레포 |
+| `shinAi.secretaryBridgeMode` | "off" | 비서 브릿지 모드 |
 
 ---
 

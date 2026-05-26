@@ -15,7 +15,7 @@ import * as vscode from 'vscode';
 
 export const COMPANY_SUBDIR = '_company';
 
-/** Settings.json `connectAiLab.localBrainPath` 입력 처리. ~/ 와 빈 문자열 케이스 정규화. */
+/** Settings.json `shinAi.localBrainPath` 입력 처리. ~/ 와 빈 문자열 케이스 정규화. */
 export function _expandTilde(p: string): string {
     if (!p) return '';
     const trimmed = p.trim();
@@ -41,7 +41,7 @@ export function _resolvePathInput(raw: string): string {
 /** 두뇌 폴더 위치 결정. settings.json `localBrainPath` 우선, 없으면 `~/.shin-ai-brain/`. */
 export function _getBrainDir(): string {
     try {
-        const cfg = vscode.workspace.getConfiguration('connectAiLab');
+        const cfg = vscode.workspace.getConfiguration('shinAi');
         const raw = cfg.get<string>('localBrainPath', '') || '';
         const resolved = _resolvePathInput(raw);
         if (resolved) return resolved;
@@ -52,7 +52,7 @@ export function _getBrainDir(): string {
 /** 사용자가 명시적으로 두뇌 폴더 경로를 설정했는지. */
 export function _isBrainDirExplicitlySet(): boolean {
     try {
-        const cfg = vscode.workspace.getConfiguration('connectAiLab');
+        const cfg = vscode.workspace.getConfiguration('shinAi');
         const raw = cfg.get<string>('localBrainPath', '') || '';
         return !!raw.trim();
     } catch { return false; }
@@ -61,9 +61,13 @@ export function _isBrainDirExplicitlySet(): boolean {
 /** 회사 폴더 위치. settings.json `companyDir` 우선 (별도 위치). 없으면 `<brain>/_company/`. */
 export function getCompanyDir(): string {
     try {
-        const raw = vscode.workspace.getConfiguration('connectAiLab').get<string>('companyDir', '') || '';
+        const raw = vscode.workspace.getConfiguration('shinAi').get<string>('companyDir', '') || '';
         const resolved = _resolvePathInput(raw);
         if (resolved) return resolved;
     } catch { /* config unavailable in some hot paths — fall through */ }
     return path.join(_getBrainDir(), COMPANY_SUBDIR);
+}
+
+export function getConversationsDir(): string {
+    return path.join(_getBrainDir(), 'conversations');
 }

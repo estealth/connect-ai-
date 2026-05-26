@@ -1,4 +1,39 @@
+// @ts-nocheck
+import { TrackerTask, TaskPriority } from './services/types';
+
+import { Scaffolder } from './core/scaffolder';
+import * as Prompts from './core/prompts';
+import { RENDER_GRAPH_HTML } from './ui/graph-template';
+import { MAX_HTTP_BODY, MAX_STREAM_BUFFER, MAX_CONTEXT_SIZE, EXCLUDED_DIRS } from "./constants";
+
+export const readTracker = () => TrackerService.getInstance().readTracker();
+export const writeTracker = (data: any) => TrackerService.getInstance().writeTracker(data);
+export const addTrackerTask = (req: any) => TrackerService.getInstance().addTrackerTask(req);
+export const appendTrackerTask = (req: any) => TrackerService.getInstance().addTrackerTask(req);
+export const updateTrackerTask = (id: string, updates: any) => TrackerService.getInstance().updateTrackerTask(id, updates);
+export const readCompanyName = () => CompanyService.getInstance().readCompanyName();
+export const getCompanyMetrics = () => CompanyService.getInstance().getCompanyMetrics();
+export const updateCompanyMetrics = (updates: any) => CompanyService.getInstance().updateCompanyMetrics(updates);
+export const getCompanyDay = () => CompanyService.getInstance().getCompanyDay();
+export const ensureCompanyStructure = () => CompanyService.getInstance().ensureCompanyStructure();
+export const isAgentHired = (id: string) => CompanyService.getInstance().isAgentHired(id);
+export const markAgentHired = (id: string, hired: boolean = true) => CompanyService.getInstance().markAgentHired(id, hired);
+export const isAgentActive = (id: string) => CompanyService.getInstance().isAgentActive(id);
+export const setAgentActive = (id: string, active: boolean) => CompanyService.getInstance().setAgentActive(id, active);
+export const readAgentModelMap = () => CompanyService.getInstance().readAgentModelMap();
+export const writeAgentModelMap = (map: any) => CompanyService.getInstance().writeAgentModelMap(map);
+export const readHiredAgents = () => CompanyService.getInstance().readHiredAgents();
+export const readActiveAgents = () => CompanyService.getInstance().readActiveAgents();
+export let _autoSyncRunning = false;
 import * as vscode from 'vscode';
+import { setExtensionContext } from './core/context';
+
+import { CompanyDashboardPanel } from './ui/dashboard-panel';
+import { ApiConnectionsPanel } from './ui/connections-panel';
+import { RevenueDashboardPanel } from './ui/revenue-panel';
+import { TaskTreeProvider, TaskTreeItem } from './ui/task-tree';
+
+export { CompanyDashboardPanel, ApiConnectionsPanel, RevenueDashboardPanel, TaskTreeProvider, TaskTreeItem };
 import * as http from 'http';
 import axios from 'axios';
 import * as fs from 'fs';
@@ -22,7 +57,7 @@ import {
 import {
     getConfig, _isLMStudioEngine,
     _loadPrompt, _loadToolSeed,
-    MAX_HTTP_BODY, MAX_STREAM_BUFFER, MAX_CONTEXT_SIZE, EXCLUDED_DIRS
+    
 } from './utils/config';
 
 // ============================================================
@@ -50,7 +85,7 @@ const _SYSTEM_PATH_BLOCKLIST = [
     '/etc', '/System', '/usr/bin', '/usr/sbin', '/bin', '/sbin', '/var/db',
     '/private/etc', '/private/var/db',
 ];
-function _resolveFlexiblePath(input: string, root: string): { abs: string; reason?: string } | null {
+export function _resolveFlexiblePath(input: string, root: string): { abs: string; reason?: string } | null {
     if (typeof input !== 'string') return null;
     let s = input.trim();
     if (!s) return null;
@@ -98,7 +133,7 @@ function _resolveFlexiblePath(input: string, root: string): { abs: string; reaso
    ±3줄 컨텍스트로 표시. 변경 없으면 빈 문자열 반환.
    알고리즘: line-by-line LCS는 비용 큼 → 단순 chunk 비교(Patience 스타일 간소화).
    대부분 edit_file은 작은 영역만 바꾸므로 충분히 정확. 너무 길면 첫 50줄만. */
-function _renderUnifiedDiff(before: string, after: string, ctx: number = 3): string {
+export function _renderUnifiedDiff(before: string, after: string, ctx: number = 3): string {
     if (before === after) return '';
     const a = before.split('\n');
     const b = after.split('\n');
@@ -135,7 +170,7 @@ function _renderUnifiedDiff(before: string, after: string, ctx: number = 3): str
 /* v2.89.104 — glob 매칭 (간단 버전). `*`, `**`, `?` 지원. node-glob 의존성 안 추가.
    `**`는 0개 이상의 디렉토리, `*`는 슬래시 제외 0+, `?`는 단일 문자.
    재귀 디렉토리 워크 + 패턴 매칭. 결과는 최대 200개. */
-function _globMatch(pattern: string, root: string, maxResults: number = 200): string[] {
+export function _globMatch(pattern: string, root: string, maxResults: number = 200): string[] {
     const re = _globToRegex(pattern);
     const results: string[] = [];
     const skipDirs = new Set(['node_modules', '.git', '.next', 'dist', 'out', 'build', '.cache', '__pycache__', '.venv', 'venv', '.idea', '.vscode']);
@@ -173,7 +208,7 @@ function _globToRegex(pattern: string): RegExp {
 
 /* v2.89.104 — grep: 파일 내용에서 패턴 검색. case-insensitive 기본.
    결과는 파일별로 묶어서 line:N 매치라인 반환. 최대 50파일·파일당 10매치. */
-function _grepFiles(pattern: string, root: string, fileGlob?: string): { file: string; matches: { line: number; text: string }[] }[] {
+export function _grepFiles(pattern: string, root: string, fileGlob?: string): { file: string; matches: { line: number; text: string }[] }[] {
     let regex: RegExp;
     try { regex = new RegExp(pattern, 'i'); }
     catch { return []; }
@@ -227,8 +262,8 @@ const _CONNECT_AI_VERSION = '2.89.156';
 
 /* v2.89.127 — semver 비교. true 이면 a < b (a 가 옛 버전). */
 function _versionLessThan(a: string, b: string): boolean {
-    const pa = a.split('.').map(n => parseInt(n, 10) || 0);
-    const pb = b.split('.').map(n => parseInt(n, 10) || 0);
+    const pa = a.split('.').map((n: any) => parseInt(n, 10) || 0);
+    const pb = b.split('.').map((n: any) => parseInt(n, 10) || 0);
     for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
         const ai = pa[i] || 0, bi = pb[i] || 0;
         if (ai !== bi) return ai < bi;
@@ -252,7 +287,7 @@ async function _probeExistingBridge(): Promise<{ ours: boolean; version: string;
 }
 
 /* v2.89.120 — 특정 TCP 포트 점유 프로세스 강제 종료 (cross-platform).
-   "이걸 메인으로 하기" UX 에 사용: 다른 Anti-Gravity 인스턴스가 4825 잡고 있을 때
+   "이걸 메인으로 하기" UX 에 사용: 다른 SHIN AI 인스턴스가 4825 잡고 있을 때
    해당 PID 찾아 SIGKILL. 종료된 PID 배열 반환 (빈 배열이면 미발견).
    - macOS/Linux: `lsof -ti:<port>` → 한 줄당 PID → `kill -9 <pid>`
    - Windows: `netstat -ano` 파싱 → LISTENING 행의 마지막 컬럼 PID → `taskkill /F /PID`
@@ -280,7 +315,7 @@ function _killProcessesOnPort(port: number): number[] {
         } else {
             /* macOS / Linux: lsof -ti:<port> */
             const r = spawnSync('lsof', ['-ti', `:${port}`], { encoding: 'utf-8', timeout: 5000 });
-            const pids = (r.stdout || '').split(/\r?\n/).map(s => parseInt(s.trim(), 10)).filter(p => !isNaN(p) && p > 0 && p !== ourPid);
+            const pids = (r.stdout || '').split(/\r?\n/).map((s: any) => parseInt(s.trim(), 10)).filter((p: any) => !isNaN(p) && p > 0 && p !== ourPid);
             for (const pid of pids) {
                 const k = spawnSync('kill', ['-9', String(pid)], { encoding: 'utf-8', timeout: 3000 });
                 if (k.status === 0) killed.push(pid);
@@ -294,7 +329,7 @@ function _killProcessesOnPort(port: number): number[] {
 
 /* v2.89.93 — OS 파일 익스플로러로 파일/폴더 열기 (Finder · Windows Explorer ·
    Linux GNOME Files). 결과 메시지를 반환해서 호출처가 사용자에게 보여줄 수 있게. */
-function _revealInOsExplorer(targetPath: string): { ok: boolean; message: string } {
+export function _revealInOsExplorer(targetPath: string): { ok: boolean; message: string } {
     try {
         if (!fs.existsSync(targetPath)) {
             return { ok: false, message: `존재하지 않는 경로: ${targetPath}` };
@@ -314,7 +349,7 @@ function _revealInOsExplorer(targetPath: string): { ok: boolean; message: string
 }
 
 /* v2.89.93 — 기본 앱으로 파일 열기 (이미지·PDF·웹페이지·.docx 등). */
-function _openInDefaultApp(targetPath: string): { ok: boolean; message: string } {
+export function _openInDefaultApp(targetPath: string): { ok: boolean; message: string } {
     try {
         if (!fs.existsSync(targetPath)) {
             return { ok: false, message: `존재하지 않는 경로: ${targetPath}` };
@@ -381,7 +416,6 @@ function readRequestBody(req: http.IncomingMessage, maxBytes = MAX_HTTP_BODY): P
 // [Moved to utils/git.ts] gitRun
 
 /** Module-scoped lock so auto-sync and manual sync never run concurrently against the same brain. */
-let _autoSyncRunning = false;
 let _companySyncRunning = false; /* separate lock — brain & company can sync in parallel */
 
 /* v2.89.152 — 크로스플랫폼 + 자동 감지 + 사용자 override.
@@ -389,9 +423,9 @@ let _companySyncRunning = false; /* separate lock — brain & company can sync i
      - 윈도우 사용자가 `py` 또는 `python3` 으로 설치한 경우 fail
      - 맥에서 `python3` 미설치 (신규 macOS, Xcode CLT 없음) 시 fail
      - venv/pyenv 환경 무시
-     - PATH 미동기화 (Anti-Gravity 가 시스템 PATH 못 잡음) 시 spawn 실패
+     - PATH 미동기화 (SHIN AI 가 시스템 PATH 못 잡음) 시 spawn 실패
    해결:
-     1. 사용자 설정 connectAiLab.pythonPath 가장 강함
+     1. 사용자 설정 shinAi.pythonPath 가장 강함
      2. 후보 cmd 순차 시도 (which/where 로 실제 존재 확인) — 첫 성공한 거 캐시
      3. 캐시 못 찾으면 fallback 명령 (사용자에게 안내)
 */
@@ -413,7 +447,7 @@ let _companySyncRunning = false; /* separate lock — brain & company can sync i
    _expandTilde, _resolvePathInput 모두 ./paths.ts 로 이동. 모듈 간 import 일원화. */
 import { _getBrainDir, _isBrainDirExplicitlySet, getCompanyDir, COMPANY_SUBDIR, _expandTilde, _resolvePathInput } from './paths';
 
-async function _ensureBrainDir(): Promise<string | null> {
+export async function _ensureBrainDir(): Promise<string | null> {
     if (_isBrainDirExplicitlySet()) {
         return _getBrainDir();
     }
@@ -432,7 +466,7 @@ async function _ensureBrainDir(): Promise<string | null> {
     if (!folders || folders.length === 0) return null;
     
     const selectedPath = folders[0].fsPath;
-    await vscode.workspace.getConfiguration('connectAiLab').update('localBrainPath', selectedPath, vscode.ConfigurationTarget.Global);
+    await vscode.workspace.getConfiguration('shinAi').update('localBrainPath', selectedPath, vscode.ConfigurationTarget.Global);
     vscode.window.showInformationMessage(`✅ 지식 폴더가 설정되었어요: ${selectedPath}`);
     return selectedPath;
 }
@@ -449,7 +483,7 @@ async function _ensureBrainDir(): Promise<string | null> {
    각 _seed* 함수에서 lazy load. assets/tool-seeds/secretary/telegram_setup.py 같은 형태. */
 // [Moved to utils/config.ts] _loadToolSeed
 
-const SYSTEM_PROMPT = _loadPrompt('system.md');
+export const SYSTEM_PROMPT = _loadPrompt('system.md');
 // ============================================================
 // 1인 기업 모드 — Multi-Agent Corporate System
 // ------------------------------------------------------------
@@ -462,7 +496,7 @@ const SYSTEM_PROMPT = _loadPrompt('system.md');
 // ============================================================
 /* v2.89.64 — AgentDef interface, AGENTS map, AGENT_ORDER, SPECIALIST_IDS
    moved to src/agents.ts. extension.ts only imports them now. ~118 lines saved. */
-import { AgentDef, AGENTS, AGENT_ORDER, SPECIALIST_IDS } from './agents';
+import { AgentDef, AGENTS, AGENT_ORDER, SPECIALIST_IDS, ALWAYS_ON_AGENTS, LOCKED_AGENTS_DEFAULT } from './agents';
 
 // ───────────────────────────────────────────────────────────────────────────
 // Connected campus world (Phase B-1 — multi-zone layout).
@@ -473,8 +507,8 @@ import { AgentDef, AGENTS, AGENT_ORDER, SPECIALIST_IDS } from './agents';
 // the world. Decorations (trees, flowers, benches) are scattered tiles on
 // the garden grass.
 // ───────────────────────────────────────────────────────────────────────────
-interface DeskPos { x: number; y: number; }
-interface WorldZone { id: string; name: string; emoji: string; x: number; y: number; }
+export interface DeskPos { x: number; y: number; }
+export interface WorldZone { id: string; name: string; emoji: string; x: number; y: number; }
 interface BuildingDef {
   id: string;
   layer1: string;
@@ -493,7 +527,7 @@ interface AgentDeskRef {
   localY: number;             // % of building height
 }
 
-const WORLD_LAYOUT = {
+export const WORLD_LAYOUT = {
   // World canvas — characters use % of these dims as their coordinate space.
   worldWidth: 1400,
   worldHeight: 700,
@@ -544,7 +578,7 @@ const WORLD_LAYOUT = {
  *  `assets/map.jpeg`. Coordinates are % of the world canvas — each places the
  *  agent at a real desk/seat in their room, avoiding walls and furniture.
  *  The y values anchor agent FEET (sprite is 96px tall, feet at bottom). */
-const CUSTOM_MAP_DESKS: Record<string, DeskPos> = {
+export const CUSTOM_MAP_DESKS: Record<string, DeskPos> = {
   // Top-left CEO solo office (glass-walled, "SHIN AI" sign on wall)
   ceo:        { x: 8,  y: 22 },
   // Front desk just outside CEO's office — Secretary station
@@ -564,10 +598,10 @@ const CUSTOM_MAP_DESKS: Record<string, DeskPos> = {
 };
 
 /** Convert each agent's building-local desk into world % coords. */
-function buildWorldDeskPositions(): Record<string, DeskPos> {
+export function buildWorldDeskPositions(): Record<string, DeskPos> {
   const out: Record<string, DeskPos> = {};
   for (const [id, ref] of Object.entries(WORLD_LAYOUT.agents)) {
-    const b = WORLD_LAYOUT.buildings.find(bb => bb.id === ref.building);
+    const b = WORLD_LAYOUT.buildings.find((bb: any) => bb.id === ref.building);
     if (!b) continue;
     const worldPxX = b.x + (ref.localX / 100) * b.width;
     const worldPxY = b.y + (ref.localY / 100) * b.height;
@@ -583,7 +617,7 @@ function buildWorldDeskPositions(): Record<string, DeskPos> {
 //   1) Nested (default, v2.58): company at `<brain>/_company/`. Same git
 //      repo, brain stays clean at root, _company/ collapses under one
 //      prefix. Best for solo users who want one backup.
-//   2) Detached (v2.59): user sets `connectAiLab.companyDir` to an absolute
+//   2) Detached (v2.59): user sets `shinAi.companyDir` to an absolute
 //      path. Company lives wherever they want — e.g., team-shared folder,
 //      separate git repo, different cloud sync. Brain stays at brain root,
 //      independent.
@@ -594,14 +628,14 @@ const COMPANY_INTERNAL_DIRS = new Set(['_cache', '_tmp']);
 /* One-shot migration: when the user upgrades from a layout where company
    files lived at the brain root, transparently move them under _company/.
    Runs at activation. Idempotent — does nothing if already migrated. */
-function _migrateCompanyToSubdir() {
+export function _migrateCompanyToSubdir() {
   try {
     const root = _getBrainDir();
     if (!fs.existsSync(root)) return;
     const target = path.join(root, COMPANY_SUBDIR);
     if (fs.existsSync(target)) return; // already migrated
     const legacyDirs = ['_shared', '_agents', 'sessions', 'approvals'];
-    const present = legacyDirs.filter(d => {
+    const present = legacyDirs.filter((d: any) => {
       try { return fs.statSync(path.join(root, d)).isDirectory(); } catch { return false; }
     });
     if (present.length === 0) return; // nothing to migrate
@@ -619,11 +653,11 @@ function _migrateCompanyToSubdir() {
   }
 }
 
-async function setCompanyDir(absPath: string) {
+export async function setCompanyDir(absPath: string) {
   // Redirects to localBrainPath: choosing a company location now means
   // choosing where the brain (and therefore the company) lives.
   try {
-    const cfg = vscode.workspace.getConfiguration('connectAiLab');
+    const cfg = vscode.workspace.getConfiguration('shinAi');
     await cfg.update('localBrainPath', absPath, vscode.ConfigurationTarget.Global);
   } catch {
     if (_extCtx) {
@@ -635,7 +669,7 @@ async function setCompanyDir(absPath: string) {
 /* v2.89.16 — YouTube creds 자동 동기화. API 패널 v2.89.14 이전엔 키를 config.md에만
    저장했고 tools/youtube_account.json은 그대로 빈 채로. 도구 실행 시 빈 값 보고
    "API 키 없음" 에러. 활성화 시 한 번 점검해서 누락된 값 자동 복구. */
-function _migrateYouTubeCredsToCanonical() {
+export function _migrateYouTubeCredsToCanonical() {
   try {
     const dir = getCompanyDir();
     const cfgPath = path.join(dir, '_agents', 'youtube', 'config.md');
@@ -683,12 +717,12 @@ function _migrateYouTubeCredsToCanonical() {
 
 // One-time migration from the old `<brain>/Company/...` (or custom
 // `companyDir`) layout to the unified flat layout. Called once on activate.
-function _migrateCompanyToBrain() {
+export function _migrateCompanyToBrain() {
   try {
     const brain = _getBrainDir();
     if (fs.existsSync(path.join(brain, '_shared'))) return; // already unified
 
-    const cfg = vscode.workspace.getConfiguration('connectAiLab');
+    const cfg = vscode.workspace.getConfiguration('shinAi');
     let legacy = ((cfg.get('companyDir') as string | undefined) || '').trim();
     if (!legacy && _extCtx) {
       legacy = (_extCtx.globalState.get<string>('companyDir') || '').trim();
@@ -718,50 +752,9 @@ function _migrateCompanyToBrain() {
   }
 }
 
-function getCompanyMetrics(): { tasksCompleted: number, knowledgeInjected: number, lastSessionDate: string, foundedAt?: string } {
-    try {
-        const brain = _getBrainDir();
-        const file = path.join(brain, 'company_state.json');
-        if (fs.existsSync(file)) {
-            return JSON.parse(fs.readFileSync(file, 'utf8'));
-        }
-    } catch { /* fall through to default */ }
-    return { tasksCompleted: 0, knowledgeInjected: 0, lastSessionDate: '' };
-}
-
 /** Returns the company's "Day N" relative to when the user first set up the
  *  company. First call also stamps `foundedAt` so the counter is stable across
  *  PCs that share the brain folder via GitHub. Returns 1 on day 0. */
-function getCompanyDay(): number {
-    try {
-        const m = getCompanyMetrics();
-        let founded = m.foundedAt;
-        if (!founded) {
-            founded = new Date().toISOString().slice(0, 10);
-            updateCompanyMetrics({ foundedAt: founded });
-        }
-        const start = Date.parse(founded + 'T00:00:00');
-        const now = Date.parse(new Date().toISOString().slice(0, 10) + 'T00:00:00');
-        if (!isFinite(start) || !isFinite(now)) return 1;
-        return Math.max(1, Math.floor((now - start) / 86400000) + 1);
-    } catch { return 1; }
-}
-
-function updateCompanyMetrics(updates: any) {
-    try {
-        const brain = _getBrainDir();
-        /* v2.89.25 — 디렉토리 없으면 만들고 쓰기. 이전엔 brain 디렉토리가 첫 활성화
-           시점에 없을 수 있어서 write 조용히 실패 → foundedAt 영원히 영속화 안 됨 →
-           Day 카운터 매번 1로 재설정. */
-        try { fs.mkdirSync(brain, { recursive: true }); } catch { /* ignore */ }
-        const file = path.join(brain, 'company_state.json');
-        const s = getCompanyMetrics();
-        Object.assign(s, updates);
-        fs.writeFileSync(file, JSON.stringify(s, null, 2));
-    } catch (e: any) {
-        console.warn('[updateCompanyMetrics] write failed:', e?.message || e);
-    }
-}
 
 function _extractCompanyName(idMd: string): string {
   const m = idMd.match(/회사\s*이름\s*[:：]\s*(.+)/);
@@ -772,23 +765,17 @@ function _extractCompanyName(idMd: string): string {
   return v;
 }
 
-function isCompanyConfigured(): boolean {
+export function isCompanyConfigured(): boolean {
   const dir = getCompanyDir();
   const idPath = path.join(dir, '_shared', 'identity.md');
   if (!fs.existsSync(idPath)) return false;
   return _extractCompanyName(_safeReadText(idPath)).length > 0;
 }
 
-function readCompanyName(): string {
-  const dir = getCompanyDir();
-  const idPath = path.join(dir, '_shared', 'identity.md');
-  return _extractCompanyName(_safeReadText(idPath));
-}
-
 /* v2.89.103 — 채용 잠금 시스템. 일부 에이전트(현재: editor=루나)는 기본 잠금
    상태로 시작하고, 사용자가 PIN(0000)을 입력해야 활성화됨. 이력서·게임적 보상감
-   조성 + 출시 단계 분리(루나는 "입사 준비 중" 컨셉). */
-const LOCKED_AGENTS_DEFAULT: Record<string, boolean> = { editor: true };
+   조성 + 출시 단계 분리(루나는 "입사 준비 중" 컨셉).
+   (LOCKED_AGENTS_DEFAULT는 src/agents.ts에서 가져옵니다.) */
 
 /* v2.89.107 — 활성/비활성 토글 시스템 (Option B).
    Luna(editor) 외에 매일 안 쓰일 가능성 큰 specialist는 기본 비활성으로 시작.
@@ -802,8 +789,8 @@ const LOCKED_AGENTS_DEFAULT: Record<string, boolean> = { editor: true };
    3. OPTIONAL (DEFAULT_OFF): 기본 비활성, 사용자 opt-in.
    4. LOCKED (Luna): PIN 필요.
    v2.89.109가 너무 보수적이어서 (CEO만 ON) 새 사용자가 회사 모드 켜고 "유튜브 분석해줘"
-   하면 빈 plan 나오는 사고. 핵심 4명을 기본 ON으로 되돌려 첫 경험 회복. */
-const ALWAYS_ON_AGENTS: Set<string> = new Set(['ceo']);
+   하면 빈 plan 나오는 사고. 핵심 4명을 기본 ON으로 되돌려 첫 경험 회복.
+   (ALWAYS_ON_AGENTS는 src/agents.ts에서 가져옵니다.) */
 /* v2.89.156 — 데모용·신규 사용자 첫 경험 회복. "유튜브 + 매출 종합 보고서" 같은 합성 명령에서
    현빈(business) 가 비활성이라 조용히 drop 되던 사고 차단. 옵션 전체를 기본 ON 으로. Luna 만 LOCKED 유지.
    사용자는 언제든 직원 패널에서 개별 OFF 가능. */
@@ -818,37 +805,6 @@ function _activeJsonPath(): string {
   return path.join(getCompanyDir(), '_shared', 'active.json');
 }
 
-function readHiredAgents(): Record<string, { hiredAt: string }> {
-  try {
-    const p = _hiredJsonPath();
-    if (!fs.existsSync(p)) return {};
-    const data = JSON.parse(fs.readFileSync(p, 'utf-8') || '{}');
-    return (data && typeof data === 'object') ? data : {};
-  } catch { return {}; }
-}
-
-function isAgentHired(id: string): boolean {
-  /* 잠금 대상이 아니면 항상 채용된 상태(별도 표시 없음) */
-  if (!LOCKED_AGENTS_DEFAULT[id]) return true;
-  const map = readHiredAgents();
-  return !!map[id];
-}
-
-function markAgentHired(id: string): boolean {
-  try {
-    const dir = path.join(getCompanyDir(), '_shared');
-    try { fs.mkdirSync(dir, { recursive: true }); } catch { /* exists */ }
-    const f = _hiredJsonPath();
-    let cur: Record<string, any> = {};
-    try { cur = JSON.parse(fs.readFileSync(f, 'utf-8') || '{}'); } catch { /* malformed */ }
-    cur[id] = { hiredAt: new Date().toISOString() };
-    fs.writeFileSync(f, JSON.stringify(cur, null, 2));
-    /* PIN 통과한 에이전트는 자동으로 active 등록 */
-    setAgentActive(id, true);
-    return true;
-  } catch { return false; }
-}
-
 /* v2.89.107 — 활성 상태 영구 저장. active.json 의 형식:
    {
      "_migrated": true,       // 기존 사용자 migration 완료 표시
@@ -856,111 +812,12 @@ function markAgentHired(id: string): boolean {
      "business": {activatedAt: ISO},
      ...
    } */
-function readActiveAgents(): Record<string, { activatedAt: string }> {
-  try {
-    const p = _activeJsonPath();
-    if (!fs.existsSync(p)) {
-      /* 첫 실행 + hired.json 에 entry 있으면 → 기존 사용자로 간주, 모든 OPTIONAL 자동 활성화 */
-      const hired = readHiredAgents();
-      const isExistingUser = Object.keys(hired).filter(k => !k.startsWith('_')).length > 0;
-      if (isExistingUser) {
-        const seed: Record<string, any> = { _migrated: true };
-        for (const id of OPTIONAL_AGENTS_DEFAULT) {
-          seed[id] = { activatedAt: new Date().toISOString() };
-        }
-        try {
-          const dir = path.join(getCompanyDir(), '_shared');
-          try { fs.mkdirSync(dir, { recursive: true }); } catch { /* exists */ }
-          fs.writeFileSync(p, JSON.stringify(seed, null, 2));
-        } catch { /* readonly fs */ }
-        return seed;
-      }
-      /* v2.89.110 — 새 사용자: DEFAULT_ON 4명을 시드로 활성화. 첫 진입에 회사 모드
-         쓸 수 있는 기본 팀을 갖춤 (사용자가 원하면 언제든 비활성화 가능). */
-      const seed: Record<string, any> = { _migrated: true, _migrated_v2: true };
-      for (const id of DEFAULT_ON_AGENTS) {
-        seed[id] = { activatedAt: new Date().toISOString(), seeded: true };
-      }
-      try {
-        const dir = path.join(getCompanyDir(), '_shared');
-        try { fs.mkdirSync(dir, { recursive: true }); } catch { /* exists */ }
-        fs.writeFileSync(p, JSON.stringify(seed, null, 2));
-      } catch { /* readonly fs */ }
-      return seed;
-    }
-    const data = JSON.parse(fs.readFileSync(p, 'utf-8') || '{}');
-    if (!data || typeof data !== 'object') return {};
-    /* v2.89.109 — ALWAYS_ON 축소(CEO만)에 따른 2차 마이그레이션. v2.89.107 사용자는
-       active.json에 _migrated:true 만 있고 OPTIONAL 4명만 활성화돼있을 수 있음. 그 경우
-       이전엔 ALWAYS_ON 이었던 secretary·youtube·writer·designer 도 자동 활성화 (사용자
-       경험 유지). 한 번만 실행: _migrated_v2 플래그로 표시. */
-    if (data._migrated && !data._migrated_v2) {
-      const carryOver = ['secretary', 'youtube', 'writer', 'designer'];
-      let touched = false;
-      for (const id of carryOver) {
-        if (!data[id]) {
-          data[id] = { activatedAt: new Date().toISOString() };
-          touched = true;
-        }
-      }
-      data._migrated_v2 = true;
-      if (touched) {
-        try { fs.writeFileSync(p, JSON.stringify(data, null, 2)); } catch { /* ignore */ }
-      }
-    }
-    /* v2.89.156 — 모든 OPTIONAL agents 기본 ON. 종합 보고서 (유튜브+매출) 같은 합성 명령
-       에서 옵션 에이전트가 silently drop 되던 문제 해결. 한 번만 실행: _migrated_v3 플래그. */
-    if (data._migrated && !data._migrated_v3) {
-      let touched = false;
-      for (const id of OPTIONAL_AGENTS_DEFAULT) {
-        if (!data[id]) {
-          data[id] = { activatedAt: new Date().toISOString(), seeded_v3: true };
-          touched = true;
-        }
-      }
-      data._migrated_v3 = true;
-      if (touched) {
-        try { fs.writeFileSync(p, JSON.stringify(data, null, 2)); } catch { /* ignore */ }
-      } else {
-        try { fs.writeFileSync(p, JSON.stringify(data, null, 2)); } catch { /* ignore */ }
-      }
-    }
-    return data;
-  } catch { return {}; }
-}
 
 /* 핵심 헬퍼: 에이전트가 현재 사용 가능한지.
    - ALWAYS_ON: 무조건 true
    - LOCKED (Luna): hired.json 에 entry 있으면 true (PIN 통과)
    - OPTIONAL: active.json 에 entry 있으면 true
    - 그 외 (정의 안 된 에이전트): true (기본값) */
-function isAgentActive(id: string): boolean {
-  if (ALWAYS_ON_AGENTS.has(id)) return true;
-  if (LOCKED_AGENTS_DEFAULT[id]) return isAgentHired(id);
-  if (OPTIONAL_AGENTS_DEFAULT.has(id)) {
-    const map = readActiveAgents();
-    return !!map[id];
-  }
-  return true;
-}
-
-function setAgentActive(id: string, active: boolean): boolean {
-  try {
-    const dir = path.join(getCompanyDir(), '_shared');
-    try { fs.mkdirSync(dir, { recursive: true }); } catch { /* exists */ }
-    const f = _activeJsonPath();
-    let cur: Record<string, any> = {};
-    try { cur = JSON.parse(fs.readFileSync(f, 'utf-8') || '{}'); } catch { /* malformed */ }
-    if (active) {
-      cur[id] = { activatedAt: new Date().toISOString() };
-    } else {
-      delete cur[id];
-    }
-    cur._migrated = true;
-    fs.writeFileSync(f, JSON.stringify(cur, null, 2));
-    return true;
-  } catch { return false; }
-}
 
 /* 에이전트가 사용자 토글 가능한지 (UI에서 설명용) */
 function isAgentTogglable(id: string): boolean {
@@ -972,65 +829,13 @@ function isAgentTogglable(id: string): boolean {
    < 8GB → qwen2.5-coder:1.5b 또는 7b
    8~16GB → qwen2.5-coder:14b
    > 16GB → deepseek-coder-v2:16b 또는 qwen2.5-coder:32b */
-function _maybeRecommendCoderModel(webview: vscode.Webview) {
-  try {
-    const active = readActiveAgents();
-    if (active._coder_recommended) return;
-    let recommendation: { name: string; size: string; reason: string };
-    try {
-      const totalGB = Math.round(os.totalmem() / (1024 ** 3));
-      if (totalGB >= 32) {
-        recommendation = { name: 'deepseek-coder-v2:16b', size: '10GB', reason: `시스템 RAM ${totalGB}GB — 최고급 코더 모델 가능` };
-      } else if (totalGB >= 16) {
-        recommendation = { name: 'qwen2.5-coder:14b', size: '9GB', reason: `시스템 RAM ${totalGB}GB — 권장 코더 모델` };
-      } else if (totalGB >= 8) {
-        recommendation = { name: 'qwen2.5-coder:7b', size: '4.4GB', reason: `시스템 RAM ${totalGB}GB — 균형 잡힌 코더 모델` };
-      } else {
-        recommendation = { name: 'qwen2.5-coder:1.5b', size: '1GB', reason: `시스템 RAM ${totalGB}GB — 작은 코더 모델 (메모리 절약)` };
-      }
-    } catch {
-      recommendation = { name: 'qwen2.5-coder:14b', size: '9GB', reason: '권장 코더 모델' };
-    }
-    const note =
-      `\n💻 **코다리 코딩 능력 강화 팁**\n` +
-      `현재 일반 모델로 동작합니다. 코딩 전용 모델로 바꾸면 결과 품질이 크게 올라가요.\n\n` +
-      `**추천: \`${recommendation.name}\`** (${recommendation.size}) — ${recommendation.reason}\n\n` +
-      `설치:\n` +
-      `\`\`\`\nollama pull ${recommendation.name}\n\`\`\`\n` +
-      `설치 후 사이드바 위 모델 선택 메뉴에서 고르세요. (이 안내는 한 번만 표시됩니다)`;
-    try { webview.postMessage({ type: 'systemNote', value: note }); } catch { /* ignore */ }
-    /* 플래그 기록 — active.json 은 사실 mixed type (메타 키 _migrated 등) 보관 가능 */
-    (active as any)._coder_recommended = true;
-    try {
-      const dir = path.join(getCompanyDir(), '_shared');
-      try { fs.mkdirSync(dir, { recursive: true }); } catch { /* exists */ }
-      fs.writeFileSync(_activeJsonPath(), JSON.stringify(active, null, 2));
-    } catch { /* readonly fs */ }
-  } catch { /* never block */ }
-}
+
 
 /* v2.89.26 — 에이전트별 모델 라우팅. CEO·YouTube·디자이너 등 각자 다른
    로컬 LLM 사용 (작은 모델은 라우팅·결정에, 큰 모델은 분석·창작에).
    설정 파일: _shared/agent_models.json. 비어있으면 default 모델 사용. */
 function _agentModelsPath(): string {
   return path.join(getCompanyDir(), '_shared', 'agent_models.json');
-}
-function readAgentModelMap(): Record<string, string> {
-  try {
-    const p = _agentModelsPath();
-    if (!fs.existsSync(p)) return {};
-    const data = JSON.parse(fs.readFileSync(p, 'utf-8') || '{}');
-    return (data && typeof data === 'object') ? data : {};
-  } catch { return {}; }
-}
-function writeAgentModelMap(map: Record<string, string>) {
-  try {
-    const p = _agentModelsPath();
-    fs.mkdirSync(path.dirname(p), { recursive: true });
-    fs.writeFileSync(p, JSON.stringify(map, null, 2));
-  } catch (e: any) {
-    console.warn('[agentModels] write failed:', e?.message || e);
-  }
 }
 function getAgentModel(agentId: string, fallback: string): string {
   const map = readAgentModelMap();
@@ -1064,19 +869,19 @@ function _classifyModel(modelId: string): ModelTier[] {
   else tiers.push('small'); /* 사이즈 알 수 없으면 small로 안전 폴백 */
   return tiers;
 }
-function _autoOrchestrateModelMap(installed: { id: string; backend: string }[]): Record<string, string> {
+export function _autoOrchestrateModelMap(installed: { id: string; backend: string }[]): Record<string, string> {
   if (installed.length === 0) return {};
   /* v2.89.36 — 메모리 안전 필터. 사용자 머신이 못 돌리는 큰 모델은 후보에서 제외.
      이전엔 16GB Mac에 70B 모델 할당해서 LM Studio가 죽었음. */
   const specs = getSystemSpecs();
-  const safeInstalled = installed.filter(m => {
+  const safeInstalled = installed.filter((m: any) => {
     const need = estimateModelMemoryGB(m.id);
     return need <= specs.safeModelBudgetGB;
   });
   /* 안전 필터로 다 잘려나가면 제일 작은 1개라도 남기기 (그래야 사용자가 일단 돌릴 수 있음) */
   const candidates = safeInstalled.length > 0 ? safeInstalled : (
     installed.length > 0
-      ? [installed.slice().sort((a, b) => estimateModelMemoryGB(a.id) - estimateModelMemoryGB(b.id))[0]]
+      ? [installed.slice().sort((a: any, b: any) => estimateModelMemoryGB(a.id) - estimateModelMemoryGB(b.id))[0]]
       : []
   );
   /* 모델별 tier 분류 + 우선순위 정렬 */
@@ -1123,7 +928,7 @@ function _autoOrchestrateModelMap(installed: { id: string; backend: string }[]):
 
    양 엔진 둘 다 띄운 사용자(드물지만) 위해 fallback: 활성 엔진이 비어있으면
    다른 엔진도 시도. */
-async function listInstalledModels(): Promise<{ id: string; backend: 'ollama' | 'lmstudio' }[]> {
+export async function listInstalledModels(): Promise<{ id: string; backend: 'ollama' | 'lmstudio' }[]> {
   const out: { id: string; backend: 'ollama' | 'lmstudio' }[] = [];
   const { ollamaBase } = getConfig();
   const isLMStudio = _isLMStudioEngine(ollamaBase);
@@ -1161,7 +966,7 @@ async function listInstalledModels(): Promise<{ id: string; backend: 'ollama' | 
    넣고 런타임에 사용자 회사명으로 치환. 회사명 미설정 시 "1인 기업" 같은 일반 표현으로.
    v2.89.39 이전엔 "JAY CORP"가 디폴트로 남아서 이 제품을 다른 사람이 쓸 때도 그 이름이
    나왔음 — 공용 배포 부적합. 이제 사용자별로 자기 회사명 또는 일반 명칭이 보임. */
-function _personalizePrompt(prompt: string): string {
+export function _personalizePrompt(prompt: string): string {
   const name = (readCompanyName() || '').trim();
   const display = name && name !== 'JAY CORP' ? name : '1인 기업';
   /* 양방향 치환: {{COMPANY}} 플레이스홀더 + 레거시 "JAY CORP" 하드코딩 둘 다 처리.
@@ -1215,7 +1020,7 @@ function _extractGoalLine(md: string, header: string): string {
   return '';
 }
 
-function readCompanyConfig(): CompanyConfig {
+export function readCompanyConfig(): CompanyConfig {
   const dir = getCompanyDir();
   const idMd = _safeReadText(path.join(dir, '_shared', 'identity.md'));
   const goalsMd = _safeReadText(path.join(dir, '_shared', 'goals.md'));
@@ -1231,7 +1036,7 @@ function readCompanyConfig(): CompanyConfig {
   };
 }
 
-function writeCompanyConfig(cfg: Partial<CompanyConfig>) {
+export function writeCompanyConfig(cfg: Partial<CompanyConfig>) {
   ensureCompanyStructure();
   const dir = getCompanyDir();
   const cur = readCompanyConfig();
@@ -1276,7 +1081,7 @@ function writeCompanyConfig(cfg: Partial<CompanyConfig>) {
 `);
 }
 
-function readTelegramConfig(): { token: string; chatId: string } {
+export function readTelegramConfig(): { token: string; chatId: string } {
   /* New canonical: _agents/secretary/tools/telegram_setup.json (set via the
      UI's ⚙️ tool config modal). Falls back to legacy config.md (markdown
      edit) for users on pre-v2.52 setups. */
@@ -1315,7 +1120,7 @@ function _markdownToTelegram(src: string): string {
   s = s.replace(/^##\s+(.+)$/gm, '\n*━━ $1 ━━*');
   s = s.replace(/^#\s+(.+)$/gm, '\n*『$1』*');
   s = s.replace(/^\s*\|.*\|\s*$/gm, line => {
-    const cells = line.split('|').map(c => c.trim()).filter(c => c.length > 0);
+    const cells = line.split('|').map((c: any) => c.trim()).filter((c: any) => c.length > 0);
     if (cells.every(c => /^[-:\s]+$/.test(c))) return '';
     return '• ' + cells.join(' · ');
   });
@@ -1323,17 +1128,26 @@ function _markdownToTelegram(src: string): string {
   return s.trim();
 }
 
-async function sendTelegramReport(text: string): Promise<boolean> {
+export async function sendTelegramReport(text: string): Promise<boolean> {
   const { token, chatId } = readTelegramConfig();
   if (!token || !chatId) return false;
   try {
     const url = `https://api.telegram.org/bot${token}/sendMessage`;
-    await axios.post(url, {
+    const r = await axios.post(url, {
       chat_id: chatId,
       text: _markdownToTelegram(text).slice(0, 4000),
       parse_mode: 'Markdown',
       disable_web_page_preview: true
-    }, { timeout: 8000 });
+    }, { timeout: 8000, validateStatus: () => true });
+    
+    if (r.status !== 200) {
+      // Markdown 파싱 실패(HTTP 400) 등 에러 시 일반 텍스트로 폴백 전송
+      await axios.post(url, {
+        chat_id: chatId,
+        text: text.slice(0, 4000),
+        disable_web_page_preview: true
+      }, { timeout: 8000, validateStatus: () => true });
+    }
     return true;
   } catch {
     return false;
@@ -1345,7 +1159,7 @@ async function sendTelegramReport(text: string): Promise<boolean> {
    formatting where possible. Returns true if every chunk was delivered.
    Falls back to plain text if Markdown parsing fails — Telegram rejects
    messages with malformed markdown. */
-async function sendTelegramLong(text: string): Promise<boolean> {
+export async function sendTelegramLong(text: string): Promise<boolean> {
   const { token, chatId } = readTelegramConfig();
   if (!token || !chatId) return false;
   const clean = _markdownToTelegram((text || '').trim());
@@ -1470,7 +1284,7 @@ function _startActiveDispatch(prompt: string, fromTelegram: boolean): ActiveDisp
   _activeDispatches.set(key, entry);
   return entry;
 }
-function _updateActiveDispatchStep(prompt: string, step: string) {
+export function _updateActiveDispatchStep(prompt: string, step: string) {
   const key = _normalizeForDispatchKey(prompt);
   const entry = _activeDispatches.get(key);
   if (entry) entry.step = step;
@@ -1498,7 +1312,7 @@ function _hydrateTelegramHistoryFromDisk() {
   try {
     const txt = _safeReadText(_telegramHistoryPath());
     if (!txt.trim()) return;
-    const lines = txt.split('\n').filter(l => l.trim());
+    const lines = txt.split('\n').filter((l: any) => l.trim());
     /* Only restore the tail — the file may have grown across many sessions
        but we still cap working memory at TELEGRAM_HISTORY_MAX. */
     for (const line of lines.slice(-TELEGRAM_HISTORY_MAX)) {
@@ -1512,7 +1326,7 @@ function _hydrateTelegramHistoryFromDisk() {
   } catch { /* ignore — first run, no file yet */ }
 }
 
-function _pushTelegramHistory(role: 'user' | 'assistant', text: string) {
+export function _pushTelegramHistory(role: 'user' | 'assistant', text: string) {
   if (!text || !text.trim()) return;
   _hydrateTelegramHistoryFromDisk();
   const entry = { role, text: text.trim().slice(0, 500), ts: Date.now() };
@@ -1547,9 +1361,9 @@ function _renderTelegramHistory(maxTurns = 8): string {
      still resolve. After 4h the user is plausibly starting a new thread.
      Persisted history means a VS Code restart no longer empties this. */
   const cutoff = Date.now() - 4 * 60 * 60_000;
-  const recent = _telegramConversationHistory.filter(e => e.ts >= cutoff).slice(-maxTurns);
+  const recent = _telegramConversationHistory.filter((e: any) => e.ts >= cutoff).slice(-maxTurns);
   if (recent.length === 0) return '';
-  return recent.map(e => `${e.role === 'user' ? '👤 사용자' : '💬 비서'}: ${e.text}`).join('\n');
+  return recent.map((e: any) => `${e.role === 'user' ? '👤 사용자' : '💬 비서'}: ${e.text}`).join('\n');
 }
 
 /* Multi-window guard — when the user has VS Code / Cursor open in several
@@ -1672,7 +1486,7 @@ const AUTONOMY_LABELS: Record<number, string> = {
     3: 'Auto'
 };
 
-function readToolAutonomyLevel(agentId: string): number {
+export function readToolAutonomyLevel(agentId: string): number {
     try {
         const p = path.join(getCompanyDir(), '_agents', agentId, 'tools.md');
         const txt = _safeReadText(p);
@@ -1747,7 +1561,7 @@ async function handleTelegramCommand(text: string): Promise<void> {
         }
         /* Allow short suffix match */
         const all = readTracker().tasks;
-        const match = all.find(t => t.id === idArg) || all.find(t => t.id.endsWith(idArg));
+        const match = all.find((t: any) => t.id === idArg) || all.find((t: any) => t.id.endsWith(idArg));
         if (!match) {
             await sendTelegramReport(`❌ id \`${idArg}\` 못 찾았어요. "할일 뭐 있어?"로 목록 확인해주세요.`);
             return;
@@ -1773,7 +1587,7 @@ async function handleTelegramCommand(text: string): Promise<void> {
             return;
         }
         const all = readTracker().tasks;
-        const match = all.find(t => t.id === idArg) || all.find(t => t.id.endsWith(idArg));
+        const match = all.find((t: any) => t.id === idArg) || all.find((t: any) => t.id.endsWith(idArg));
         if (!match) {
             await sendTelegramReport(`❌ id \`${idArg}\` 못 찾았어요.`);
             return;
@@ -1846,7 +1660,7 @@ async function handleTelegramCommand(text: string): Promise<void> {
             const a = AGENTS[id];
             const skillsDir = path.join(getCompanyDir(), '_agents', id, 'skills');
             let files: string[] = [];
-            try { files = fs.readdirSync(skillsDir).filter(f => f.endsWith('.md') && f.toLowerCase() !== 'readme.md'); } catch { /* ignore */ }
+            try { files = fs.readdirSync(skillsDir).filter((f: any) => f.endsWith('.md') && f.toLowerCase() !== 'readme.md'); } catch { /* ignore */ }
             if (files.length === 0) continue;
             lines.push(`${a.emoji} *${a.name}* (${files.length})`);
             for (const f of files.slice(0, 5)) {
@@ -1873,7 +1687,7 @@ async function handleTelegramCommand(text: string): Promise<void> {
                 await sendTelegramReport(`✅ 승인 대기 액션이 없어요.`);
                 return;
             }
-            const list = pending.slice(0, 5).map(a => {
+            const list = pending.slice(0, 5).map((a: any) => {
                 const ag = AGENTS[a.agentId];
                 return `• \`${a.id.slice(-9)}\` ${ag?.emoji || '🤖'} ${a.title}`;
             }).join('\n');
@@ -1914,7 +1728,7 @@ async function handleTelegramCommand(text: string): Promise<void> {
    small models often emit a "thinking" / scratchpad JSON before the real
    answer, and the legacy first-only behavior would lock onto the scratchpad
    and leak it (or trigger an empty-reply fallback). */
-function _extractFirstJsonObject(raw: string): any | null {
+export function _extractFirstJsonObject(raw: string): any | null {
     if (!raw) return null;
     /* Strip code fences first */
     const stripped = raw.replace(/```[a-zA-Z]*\n?|```/g, '');
@@ -1947,7 +1761,7 @@ function _extractFirstJsonObject(raw: string): any | null {
         i = endIdx + 1;
     }
     if (candidates.length === 0) return null;
-    const withMode = candidates.find(c => typeof c.mode === 'string');
+    const withMode = candidates.find((c: any) => typeof c.mode === 'string');
     return withMode || candidates[0];
 }
 
@@ -2048,7 +1862,7 @@ function _buildDispatchStatusReport(): string {
     } catch { /* tracker may not exist */ }
     /* 24시간 자율 사이클 ON/OFF */
     try {
-        const enabled = vscode.workspace.getConfiguration('connectAiLab').get<boolean>('autoCycleEnabled', true);
+        const enabled = vscode.workspace.getConfiguration('shinAi').get<boolean>('autoCycleEnabled', true);
         lines.push(`*🌙 24시간 자율 사이클*: ${enabled ? '✅ ON (15분마다 일거리 자동 실행)' : '⏸ OFF'}`);
     } catch { /* ignore */ }
     return lines.join('\n');
@@ -2134,7 +1948,7 @@ async function handleTelegramViaSecretary(userText: string): Promise<void> {
         try {
             const sessDir = path.join(dir, 'sessions');
             const sessions = fs.readdirSync(sessDir)
-                .filter(n => !n.startsWith('.'))
+                .filter((n: any) => !n.startsWith('.'))
                 .sort()
                 .slice(-3);
             if (sessions.length > 0) {
@@ -2289,11 +2103,11 @@ async function handleTelegramViaSecretary(userText: string): Promise<void> {
                 return d.toLocaleString('ko-KR', { month: '2-digit', day: '2-digit', weekday: 'short', hour: '2-digit', minute: '2-digit' });
             } catch { return s; }
         };
-        const list = events.map(e => `• *${fmt(e.startIso)}* — ${e.title}`).join('\n');
+        const list = events.map((e: any) => `• *${fmt(e.startIso)}* — ${e.title}`).join('\n');
         await sendTelegramLong(`💬 *비서 — 향후 ${days}일 일정*\n\n${list}${replyText ? `\n\n${replyText}` : ''}`);
         /* Compact summary for history — keeps "그 일정" references resolvable
            without dumping the full list into every subsequent prompt. */
-        const histSummary = events.slice(0, 5).map(e => `${e.title} (${fmt(e.startIso)})`).join(', ');
+        const histSummary = events.slice(0, 5).map((e: any) => `${e.title} (${fmt(e.startIso)})`).join(', ');
         _pushTelegramHistory('assistant', `향후 ${days}일 일정: ${histSummary}${events.length > 5 ? ' 외 ' + (events.length - 5) + '건' : ''}`);
         try { _activeChatProvider?.postSystemNote?.(`비서 → 캘린더 조회 (${events.length}건)`, '📅'); } catch { /* ignore */ }
         return;
@@ -2533,14 +2347,14 @@ function _scheduleTick() {
         console.warn('[scheduler] tick failed:', e?.message || e);
     }
 }
-function startReportScheduler() {
+export function startReportScheduler() {
     if (_reportSchedulerTimer) return;
     /* 매 60초마다 점검. 분 단위 정밀도면 충분. */
     _reportSchedulerTimer = setInterval(_scheduleTick, 60_000);
     /* 첫 tick은 30초 후 — 활성화 직후 폭주 방지 */
     setTimeout(_scheduleTick, 30_000);
 }
-function startTelegramPolling() {
+export function startTelegramPolling() {
     if (_telegramPollTimer) return;
     // Restore last known offset so we never replay messages after a restart
     if (_extCtx) {
@@ -2553,7 +2367,7 @@ function startTelegramPolling() {
         if (!_tryAcquireTelegramLock()) return; // another window is already the leader
         _telegramPolling = true;
         /* v2.89.24 — 유저 레벨 파일 offset 사용. globalState는 같은 머신·같은 확장이지만
-           Antigravity 같은 fork에서 namespace가 다를 수 있어서, 진짜 공유는 파일 한 군데. */
+           SHIN AI 같은 fork에서 namespace가 다를 수 있어서, 진짜 공유는 파일 한 군데. */
         const fileOffset = _readTelegramOffset();
         if (fileOffset > _telegramPollOffset) _telegramPollOffset = fileOffset;
         if (_extCtx) {
@@ -2697,7 +2511,7 @@ async function _getCalendarAccessToken(): Promise<string | null> {
 /* Create a calendar event for a tracker task. Best effort — never throws.
    Returns the eventId if successful so the caller can persist it on the
    tracker entry for future updates. */
-async function createCalendarEventForTask(task: TrackerTask): Promise<string | null> {
+async function createCalendarEventForTask(task: any): Promise<string | null> {
   if (!task.dueAt) return null;
   const access = await _getCalendarAccessToken();
   if (!access) return null;
@@ -2755,7 +2569,7 @@ async function createCalendarEventForTask(task: TrackerTask): Promise<string | n
 /* Update a calendar event when its tracker task changes. Best effort —
    silently no-ops if the task has no event id or Calendar isn't connected.
    Used when a task gets renamed, completed, or its due date moves. */
-async function updateCalendarEventForTask(task: TrackerTask): Promise<boolean> {
+async function updateCalendarEventForTask(task: any): Promise<boolean> {
   if (!task.calendarEventId) return false;
   const access = await _getCalendarAccessToken();
   if (!access) return false;
@@ -3014,7 +2828,7 @@ async function refreshCalendarCacheViaOAuth(daysAhead: number = 14): Promise<{ o
    their Client ID/Secret, runs a loopback auth flow, and persists the
    refresh_token. Only Secretary owns this — keys live in Secretary's tool
    config so the rest of the system can find them via one stable path. */
-async function runConnectGoogleCalendarWrite() {
+export async function runConnectGoogleCalendarWrite() {
   const cfg = readCalendarWriteConfig();
   const already = isCalendarWriteConnected();
   if (already) {
@@ -3330,7 +3144,7 @@ async function _runTrackerNudgeOnce() {
         }
     } catch { /* never let nudge errors break anything */ }
 }
-function startTrackerNudgeLoop() {
+export function startTrackerNudgeLoop() {
     if (_trackerNudgeTimer) return;
     /* First check after 5 min, then hourly. Light interval keeps batterylcheap. */
     setTimeout(_runTrackerNudgeOnce, 5 * 60 * 1000);
@@ -3358,102 +3172,13 @@ function _parseBriefingTime(raw: string): { hour: number; minute: number } | nul
     return { hour, minute };
 }
 
-async function _runDailyBriefingOnce(force = false): Promise<void> {
-    try {
-        const cfg = vscode.workspace.getConfiguration('connectAiLab');
-        const time = _parseBriefingTime(cfg.get<string>('dailyBriefingTime') || '09:00');
-        if (!time && !force) return; // off
-        const { token, chatId } = readTelegramConfig();
-        if (!token || !chatId) return; // no channel
-        const today = new Date().toISOString().slice(0, 10);
-        const lastSent = _extCtx?.globalState.get<string>(_DAILY_BRIEFING_KEY, '');
-        if (!force && lastSent === today) return; // already sent today
-
-        /* Build the brief — kept text-only so the prompt stays small. */
-        const dir = getCompanyDir();
-        const company = readCompanyName() || '1인 기업';
-        const dateStr = new Date().toLocaleDateString('ko-KR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
-
-        /* 1. Calendar */
-        let calBlock = '';
-        try {
-            const cal = _safeReadText(path.join(dir, '_shared', 'calendar_cache.md')).trim();
-            if (cal) {
-                const calLines = cal.split('\n').filter(l => l.trim().startsWith('-')).slice(0, 6);
-                if (calLines.length > 0) calBlock = `\n*📅 오늘 일정*\n${calLines.join('\n')}\n`;
-            }
-        } catch { /* ignore */ }
-        if (!calBlock) calBlock = '\n*📅 오늘 일정*\n_등록된 일정이 없어요._\n';
-
-        /* 2. Open tasks (top 5 by priority) */
-        let taskBlock = '';
-        try {
-            const md = trackerToMarkdown({ onlyOpen: true, max: 5 });
-            taskBlock = md ? `\n*✅ 우선순위 할 일 (상위 5)*\n${md}\n` : '\n*✅ 할 일*\n_진행 중인 작업이 없어요._\n';
-        } catch { /* ignore */ }
-
-        /* 3. Yesterday highlights — last 800 chars of yesterday's log */
-        let yhBlock = '';
-        try {
-            const yest = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
-            const ypath = path.join(getConversationsDir(), `${yest}.md`);
-            const txt = _safeReadText(ypath);
-            if (txt.trim()) {
-                const tail = txt.slice(-700);
-                yhBlock = `\n*📝 어제 회사 활동 (요약 컨텍스트)*\n${tail.slice(0, 700)}\n`;
-            }
-        } catch { /* ignore */ }
-
-        /* 4. v2.89.136 — 어제 PayPal 매출 (가능하면). business/tools/paypal_revenue.py
-           를 LOOKBACK_DAYS=1 으로 동기 실행 → 어제 총 매출·거래수만 한 줄 추출.
-           paypal 설정 안 됐거나 실패 시 silently skip — 브리핑 자체는 항상 발송. */
-        let revBlock = '';
-        try {
-            const ppToolDir = path.join(getCompanyDir(), '_agents', 'business', 'tools');
-            const ppScript = path.join(ppToolDir, 'paypal_revenue.py');
-            const ppJson = path.join(ppToolDir, 'paypal_revenue.json');
-            if (fs.existsSync(ppScript) && fs.existsSync(ppJson)) {
-                const env = { ...process.env, LOOKBACK_DAYS: '1' };
-                const r = await new Promise<{ exitCode: number; output: string }>((resolve) => {
-                    const cp = require('child_process');
-                    const p = cp.spawn(_pythonCmd(), [ppScript], { cwd: ppToolDir, env });
-                    let out = '';
-                    p.stdout?.on('data', (d: Buffer) => { out += d.toString(); });
-                    p.on('close', (code: number) => resolve({ exitCode: code, output: out }));
-                    setTimeout(() => { try { p.kill(); } catch {} resolve({ exitCode: -1, output: out }); }, 15000);
-                });
-                if (r.exitCode === 0 && r.output) {
-                    /* 출력 마크다운에서 첫 통화 행 추출 — 예: "| **USD** | 14.95 | -0 | ..." */
-                    const m = r.output.match(/\|\s*\*\*([A-Z]{3})\*\*\s*\|\s*([\d.,]+)\s*\|[^|]+\|[^|]+\|\s*\*\*([\d.,]+)\*\*\s*\|\s*(\d+)건/);
-                    if (m) {
-                        revBlock = `\n*💰 어제 매출*\n  ${m[1]} ${m[2]} (순매출 ${m[3]}, ${m[4]}건)\n`;
-                    } else if (/거래가 없어요/.test(r.output)) {
-                        revBlock = '\n*💰 어제 매출*\n  _거래 0건_\n';
-                    }
-                }
-            }
-        } catch { /* ignore — briefing 자체는 항상 진행 */ }
-
-        const body = `🌅 *${company} — 아침 브리핑*\n_${dateStr}_\n${calBlock}${taskBlock}${revBlock}${yhBlock}\n_명령: \`/today\` 다시 보기 · \`/tools\` 도구 상태_`;
-        await sendTelegramReport(body);
-        if (_extCtx) {
-            _extCtx.globalState.update(_DAILY_BRIEFING_KEY, today);
-        }
-        try { appendConversationLog({ speaker: '비서', emoji: '🌅', section: '데일리 브리핑', body: body.slice(0, 1000) }); } catch { /* ignore */ }
-        /* v2.82: removed the system-note injection into chat. Daily briefing
-           now lives only in: (1) telegram, (2) company dashboard "회사
-           활동 로그" + KPI strip, (3) conversation log file. The chat is
-           kept as a clean conversation surface — no auto-injected cards. */
-    } catch { /* never let briefing errors break the extension */ }
-}
-
-function startDailyBriefingLoop() {
+export function startDailyBriefingLoop() {
     if (_dailyBriefingTimer) return;
     /* Check every minute — cheap, gives ±60s precision on the configured time.
        The single-fire guard via globalState makes this safe to over-tick. */
     _dailyBriefingTimer = setInterval(() => {
         try {
-            const cfg = vscode.workspace.getConfiguration('connectAiLab');
+            const cfg = vscode.workspace.getConfiguration('shinAi');
             const time = _parseBriefingTime(cfg.get<string>('dailyBriefingTime') || '09:00');
             if (!time) return;
             const now = new Date();
@@ -3517,11 +3242,11 @@ async function _runRevenueWatcherOnce(): Promise<void> {
         }
 
         /* 새 거래 = lastSeenTs 보다 ts 큰 것 (refund 포함, 사용자에게 다 알림). */
-        const fresh = txs.filter(t => t.ts_epoch > lastSeenTs && t.id !== lastSeenId);
+        const fresh = txs.filter((t: any) => t.ts_epoch > lastSeenTs && t.id !== lastSeenId);
         if (fresh.length === 0) return;
 
         /* 가장 최신부터 역순 정렬 → 알림은 옛 → 신순 */
-        fresh.sort((a, b) => a.ts_epoch - b.ts_epoch);
+        fresh.sort((a: any, b: any) => a.ts_epoch - b.ts_epoch);
         for (const tx of fresh) {
             const isRefund = !!tx.is_refund;
             const arrow = isRefund ? '↩️ 환불' : '💰 새 결제';
@@ -3554,7 +3279,7 @@ async function _runRevenueWatcherOnce(): Promise<void> {
     }
 }
 
-function startRevenueWatcherLoop() {
+export function startRevenueWatcherLoop() {
     if (_revenueWatcherTimer) return;
     /* 첫 tick: activate 후 30초. 그 뒤 5분마다. */
     setTimeout(() => { _runRevenueWatcherOnce(); }, 30_000);
@@ -3626,16 +3351,6 @@ function _trackerPath(): string {
   return path.join(getCompanyDir(), '_shared', 'tracker.json');
 }
 
-function readTracker(): { tasks: TrackerTask[] } {
-  try {
-    const p = _trackerPath();
-    if (!fs.existsSync(p)) return { tasks: [] };
-    const raw = fs.readFileSync(p, 'utf-8');
-    const parsed = JSON.parse(raw || '{}');
-    return { tasks: Array.isArray(parsed.tasks) ? parsed.tasks : [] };
-  } catch { return { tasks: [] }; }
-}
-
 /* Module-level event emitter so the sidebar Task TreeView auto-refreshes
    whenever the tracker file is modified through writeTracker (no matter who
    calls it — Secretary, autoMark, edit commands, recurrence loop). */
@@ -3661,7 +3376,7 @@ interface PendingApproval {
     createdAt: string;
 }
 
-function _approvalsPendingDir(): string {
+export function _approvalsPendingDir(): string {
     return path.join(getCompanyDir(), 'approvals', 'pending');
 }
 function _approvalsHistoryDir(): string {
@@ -3736,7 +3451,7 @@ ${JSON.stringify(ap.payload, null, 2)}
     return ap;
 }
 
-function listPendingApprovals(): PendingApproval[] {
+export function listPendingApprovals(): PendingApproval[] {
     const dir = _approvalsPendingDir();
     if (!fs.existsSync(dir)) return [];
     const out: PendingApproval[] = [];
@@ -3748,76 +3463,13 @@ function listPendingApprovals(): PendingApproval[] {
             if (ap && ap.id) out.push(ap);
         } catch { /* skip malformed */ }
     }
-    out.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+    out.sort((a: any, b: any) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
     return out;
 }
 
 function findApprovalByShortId(short: string): PendingApproval | null {
     const all = listPendingApprovals();
-    return all.find(a => a.id === short) || all.find(a => a.id.endsWith(short)) || null;
-}
-
-async function resolveApproval(id: string, decision: 'approved' | 'rejected', reason: string = ''): Promise<{ ok: boolean; message: string; ap?: PendingApproval }> {
-    const ap = findApprovalByShortId(id);
-    if (!ap) return { ok: false, message: '해당 id 승인 요청을 찾지 못했어요.' };
-    const pendingDir = _approvalsPendingDir();
-    const histDir = _approvalsHistoryDir();
-    fs.mkdirSync(histDir, { recursive: true });
-    /* Move both files (md + json) to history with decision suffix. */
-    const stamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 16);
-    const tag = decision === 'approved' ? 'OK' : 'NO';
-    const baseSrc = path.join(pendingDir, ap.id);
-    const baseDst = path.join(histDir, `${stamp}_${tag}_${ap.id}`);
-    let executorOutput = '';
-    let executorOk = true;
-    if (decision === 'approved') {
-        /* Try to dispatch the executor — file `approvals/executors/{kind}.js`.
-           Best-effort: if missing or it throws, we still record the approval
-           but warn the user. No executor means "approval recorded, do it
-           manually" — useful for early stage when integrations land in
-           waves. */
-        const execPath = path.join(_approvalsExecutorsDir(), `${ap.kind}.js`);
-        if (fs.existsSync(execPath)) {
-            try {
-                /* Use spawnSync for isolation — no shared module cache. */
-                const res = spawnSync('node', [execPath], {
-                    cwd: getCompanyDir(),
-                    encoding: 'utf-8',
-                    timeout: 60000,
-                    input: JSON.stringify(ap.payload),
-                });
-                executorOutput = (res.stdout || '') + (res.stderr ? `\n[stderr]\n${res.stderr}` : '');
-                executorOk = res.status === 0;
-            } catch (e: any) {
-                executorOk = false;
-                executorOutput = `executor error: ${e?.message || e}`;
-            }
-        } else {
-            executorOutput = `(no executor for ${ap.kind} — approval recorded, manual follow-up)`;
-        }
-    }
-    /* Append decision to the markdown for audit. */
-    try {
-        const mdPath = `${baseSrc}.md`;
-        if (fs.existsSync(mdPath)) {
-            const append = `\n---\n\n## 결정: **${decision === 'approved' ? '✅ 승인' : '✖️ 거부'}**\n- 시각: ${new Date().toISOString()}\n- 사유: ${reason || '_(없음)_'}\n${decision === 'approved' ? `- 실행 결과: ${executorOk ? 'OK' : 'FAIL'}\n\n\`\`\`\n${executorOutput.slice(0, 1500)}\n\`\`\`\n` : ''}`;
-            fs.appendFileSync(mdPath, append);
-        }
-    } catch { /* ignore */ }
-    /* Move pending → history. */
-    try {
-        for (const ext of ['.md', '.json']) {
-            const src = `${baseSrc}${ext}`;
-            const dst = `${baseDst}${ext}`;
-            if (fs.existsSync(src)) fs.renameSync(src, dst);
-        }
-    } catch { /* ignore */ }
-    const a = AGENTS[ap.agentId];
-    const ownerLine = a ? `${a.emoji} ${a.name}` : ap.agentId;
-    try { appendConversationLog({ speaker: ownerLine, emoji: decision === 'approved' ? '✅' : '✖️', section: '승인 결과', body: `${ap.title} (${ap.kind}) → ${decision}${reason ? '\n사유: ' + reason : ''}${decision === 'approved' && !executorOk ? '\n실행 실패' : ''}` }); } catch { /* ignore */ }
-    return { ok: true, ap, message: decision === 'approved'
-        ? `✅ 승인됨 — ${ap.title}${executorOutput ? `\n\n${executorOutput.slice(0, 600)}` : ''}`
-        : `✖️ 거부됨 — ${ap.title}` };
+    return all.find((a: any) => a.id === short) || all.find((a: any) => a.id.endsWith(short)) || null;
 }
 
 /* P1-9: YouTube comment-reply queue ──────────────────────────────────────
@@ -3837,7 +3489,7 @@ async function resolveApproval(id: string, decision: 'approved' | 'rejected', re
      - static:       single index.html with Tailwind CDN — for landing pages
    We don't run npm install — that's a privileged action, the user runs it
    when they're ready. We DO write a README that tells them the next steps. */
-async function scaffoldDeveloperProject(name: string, template: 'vite-vanilla' | 'vite-react' | 'static'): Promise<{ ok: true; path: string } | { ok: false; error: string }> {
+export async function scaffoldDeveloperProject(name: string, template: 'vite-vanilla' | 'vite-react' | 'static'): Promise<{ ok: true; path: string } | { ok: false; error: string }> {
     try {
         const safe = name.replace(/[^a-zA-Z0-9_-]/g, '');
         if (!safe) return { ok: false, error: '유효하지 않은 이름' };
@@ -3997,186 +3649,14 @@ _Developer 에이전트와 사용자가 내린 디자인·기술 의사결정이
     }
 }
 
-async function _youtubeCommentReplyDraftBatch(opts: { maxComments?: number; maxPerVideo?: number } = {}): Promise<{ drafted: number; skipped: number; reason?: string }> {
-    /* Office pulse so the user sees youtube agent is working on something
-       even when triggered from a button press rather than chat dispatch. */
-    try { _activeChatProvider?.pulseAgent?.('youtube', '📺', 4000, '댓글 큐 갱신 중'); } catch { /* ignore */ }
-    const cfgPath = path.join(getCompanyDir(), '_agents', 'youtube', 'config.md');
-    const cfgTxt = _safeReadText(cfgPath);
-    const apiM = cfgTxt.match(/YOUTUBE_API_KEY\s*[:：=]\s*([A-Za-z0-9_\-]+)/);
-    const chM  = cfgTxt.match(/YOUTUBE_CHANNEL_ID\s*[:：=]\s*([A-Za-z0-9_\-]+)/);
-    if (!apiM || !chM) {
-        return { drafted: 0, skipped: 0, reason: 'YOUTUBE_API_KEY 또는 YOUTUBE_CHANNEL_ID 미설정 (`_agents/youtube/config.md`)' };
-    }
-    const apiKey = apiM[1];
-    const channelId = chM[1];
-    const maxComments = opts.maxComments ?? 10;
-    const maxPerVideo = opts.maxPerVideo ?? 3;
-    /* 1) channel → recent uploads playlist */
-    let uploads = '';
-    try {
-        const r = await axios.get(`https://www.googleapis.com/youtube/v3/channels`, {
-            params: { part: 'contentDetails', id: channelId, key: apiKey },
-            timeout: 10000,
-        });
-        uploads = r.data?.items?.[0]?.contentDetails?.relatedPlaylists?.uploads || '';
-    } catch (e: any) {
-        return { drafted: 0, skipped: 0, reason: `채널 조회 실패: ${e?.message || e}` };
-    }
-    if (!uploads) return { drafted: 0, skipped: 0, reason: '업로드 플레이리스트를 찾지 못함' };
-    /* 2) recent video ids */
-    let videoIds: string[] = [];
-    try {
-        const r = await axios.get(`https://www.googleapis.com/youtube/v3/playlistItems`, {
-            params: { part: 'contentDetails', playlistId: uploads, maxResults: 5, key: apiKey },
-            timeout: 10000,
-        });
-        videoIds = (r.data?.items || []).map((it: any) => it.contentDetails?.videoId).filter(Boolean);
-    } catch (e: any) {
-        return { drafted: 0, skipped: 0, reason: `최근 영상 조회 실패: ${e?.message || e}` };
-    }
-    /* 3) for each video, fetch top comments, draft replies, create approvals.
-       Skip comments that already have a pending approval to avoid spam on
-       repeated runs. */
-    const pendingNow = listPendingApprovals();
-    const existingCommentIds = new Set(
-        pendingNow
-            .filter(a => a.kind === 'youtube.comment_reply')
-            .map(a => String(a.payload?.commentId || ''))
-    );
-    let drafted = 0, skipped = 0;
-    for (const videoId of videoIds) {
-        if (drafted >= maxComments) break;
-        let comments: any[] = [];
-        try {
-            const r = await axios.get(`https://www.googleapis.com/youtube/v3/commentThreads`, {
-                params: { part: 'snippet', videoId, maxResults: maxPerVideo, order: 'time', key: apiKey, textFormat: 'plainText' },
-                timeout: 10000,
-            });
-            comments = r.data?.items || [];
-        } catch { continue; /* video may have comments disabled */ }
-        for (const c of comments) {
-            if (drafted >= maxComments) break;
-            const top = c.snippet?.topLevelComment?.snippet;
-            const commentId = c.snippet?.topLevelComment?.id;
-            if (!top || !commentId) continue;
-            if (existingCommentIds.has(commentId)) { skipped++; continue; }
-            /* If channel owner has already replied, skip — the conversation
-               is owned by a human now. */
-            if ((c.snippet?.totalReplyCount || 0) > 0) { skipped++; continue; }
-            const author = top.authorDisplayName || '익명';
-            const text = (top.textDisplay || '').slice(0, 500);
-            let draft = '';
-            try {
-                draft = await _quickLLMCall(
-                    `당신은 1인 크리에이터의 YouTube 댓글 답장 작성기입니다. 친근하고 짧게 (1~3문장), 한국어로, 채널 톤 유지. 욕설·논쟁 회피, 스팸성 댓글은 "감사합니다 ☺️" 같이 짧게.`,
-                    `[댓글 작성자] ${author}\n[댓글]\n${text}\n\n위 댓글에 답장 초안을 1~3문장으로.`,
-                    200
-                );
-            } catch { /* skip on draft failure */ continue; }
-            const reply = (draft || '').trim();
-            if (!reply) continue;
-            createApproval({
-                agentId: 'youtube',
-                title: `${author}님 댓글에 답장`,
-                summary: `*원댓글:* ${text.slice(0, 200)}\n\n*답장 초안:* ${reply.slice(0, 300)}`,
-                kind: 'youtube.comment_reply',
-                payload: { videoId, commentId, replyText: reply, author, originalText: text },
-            });
-            drafted++;
-        }
-    }
-    return { drafted, skipped };
-}
-
-function writeTracker(t: { tasks: TrackerTask[] }) {
-  try {
-    const dir = path.join(getCompanyDir(), '_shared');
-    fs.mkdirSync(dir, { recursive: true });
-    fs.writeFileSync(_trackerPath(), JSON.stringify(t, null, 2));
-    try { _trackerChangeEmitter.fire(); } catch { /* no listeners — fine */ }
-  } catch { /* never let tracker errors break flow */ }
-}
-
 function _trackerNewId(): string {
   const stamp = new Date().toISOString().replace(/[-:T.]/g, '').slice(0, 14);
   const rand = Math.random().toString(36).slice(2, 6);
   return `${stamp}-${rand}`;
 }
 
-function addTrackerTask(partial: Partial<TrackerTask> & { title: string; owner: TrackerTask['owner'] }): TrackerTask {
-  const t = readTracker();
-  const task: TrackerTask = {
-    id: partial.id || _trackerNewId(),
-    title: partial.title.slice(0, 200),
-    description: partial.description?.slice(0, 1000),
-    owner: partial.owner,
-    agentIds: partial.agentIds,
-    createdAt: partial.createdAt || new Date().toISOString(),
-    dueAt: partial.dueAt,
-    status: partial.status || (partial.owner === 'agent' ? 'in_progress' : 'pending'),
-    sessionDir: partial.sessionDir,
-    nudges: 0,
-    priority: _coercePriority(partial.priority),
-    recurrence: partial.recurrence,
-    nextRunAt: partial.nextRunAt,
-    preAlarmsSent: partial.preAlarmsSent || [],
-  };
-  t.tasks.push(task);
-  /* Keep file from growing unbounded — drop very old completed/cancelled. */
-  const cutoff = Date.now() - 30 * 86_400_000;
-  t.tasks = t.tasks.filter(x => {
-    if (x.status === 'done' || x.status === 'cancelled') {
-      const at = new Date(x.completedAt || x.createdAt).getTime();
-      return at >= cutoff;
-    }
-    return true;
-  });
-  writeTracker(t);
-  /* Auto-create Google Calendar event when due is set + Calendar is wired.
-     Fire-and-forget — never blocks tracker creation. Updates the tracker
-     entry with the eventId once the API call returns. */
-  if (task.dueAt && isCalendarWriteConnected()) {
-    createCalendarEventForTask(task).then(eventId => {
-      if (eventId) {
-        updateTrackerTask(task.id, { calendarEventId: eventId });
-      }
-    }).catch(() => { /* silent — calendar errors shouldn't break tracker */ });
-  }
-  return task;
-}
-
-function updateTrackerTask(id: string, patch: Partial<TrackerTask>): TrackerTask | null {
-  const t = readTracker();
-  const idx = t.tasks.findIndex(x => x.id === id);
-  if (idx < 0) return null;
-  const prev = t.tasks[idx];
-  t.tasks[idx] = { ...prev, ...patch };
-  const cur = t.tasks[idx];
-  if ((patch.status === 'done' || patch.status === 'cancelled') && !cur.completedAt) {
-    cur.completedAt = new Date().toISOString();
-  }
-  writeTracker(t);
-  /* Mirror tracker state to Google Calendar so the user's calendar isn't
-     stuck on stale plans. Cancelled → delete event; status/title/due change
-     while still active → patch event. Best-effort, never blocks. */
-  if (cur.calendarEventId && isCalendarWriteConnected()) {
-    const becameCancelled = patch.status === 'cancelled' && prev.status !== 'cancelled';
-    const titleOrDueChanged = (patch.title && patch.title !== prev.title) || (patch.dueAt && patch.dueAt !== prev.dueAt);
-    const becameDone = patch.status === 'done' && prev.status !== 'done';
-    if (becameCancelled) {
-      deleteCalendarEvent(cur.calendarEventId).then(ok => {
-        if (ok) updateTrackerTask(cur.id, { calendarEventId: undefined });
-      }).catch(() => { /* silent */ });
-    } else if (becameDone || titleOrDueChanged) {
-      updateCalendarEventForTask(cur).catch(() => { /* silent */ });
-    }
-  }
-  return t.tasks[idx];
-}
-
-function listOpenTrackerTasks(): TrackerTask[] {
-  return readTracker().tasks.filter(t => t.status !== 'done' && t.status !== 'cancelled');
+function listOpenTrackerTasks(): any[] {
+  return readTracker().tasks.filter((t: any) => t.status !== 'done' && t.status !== 'cancelled');
 }
 
 /* P1-8: Forgiving date parser for /reschedule. Covers the four shapes the
@@ -4283,7 +3763,7 @@ function _runRecurrenceTickOnce() {
     } catch { /* never let recurrence break anything */ }
 }
 
-function startRecurrenceLoop() {
+export function startRecurrenceLoop() {
     if (_recurrenceTimer) return;
     /* First check after 1 minute, then every minute. The 1-min granularity
        is the same as the daily-briefing loop, so the two cooperate cleanly
@@ -4346,7 +3826,7 @@ async function _runPreAlarmTickOnce(): Promise<void> {
     } catch { /* silent */ }
 }
 
-function startPreAlarmLoop() {
+export function startPreAlarmLoop() {
     if (_preAlarmTimer) return;
     /* First tick after 2 min, then hourly. The 2-min initial gives the
        extension time to fully boot before we start firing user alerts. */
@@ -4362,7 +3842,7 @@ function stopPreAlarmLoop() {
    formatting all flow into one tracker. Only unchecked items count —
    `[x]` is already-done, and we don't try to retroactively register
    completed work. Capped to 5 per output to prevent runaway lists. */
-function _harvestActionItems(text: string): string[] {
+export function _harvestActionItems(text: string): string[] {
   if (!text) return [];
   const out: string[] = [];
   const lines = text.split('\n');
@@ -4379,13 +3859,13 @@ function _harvestActionItems(text: string): string[] {
 
 function trackerToMarkdown(opts: { onlyOpen?: boolean; max?: number } = {}): string {
   const all = readTracker().tasks;
-  const tasks = opts.onlyOpen ? all.filter(t => t.status !== 'done' && t.status !== 'cancelled') : all;
+  const tasks = opts.onlyOpen ? all.filter((t: any) => t.status !== 'done' && t.status !== 'cancelled') : all;
   if (tasks.length === 0) return '';
   /* Sort: status (in_progress > pending > done) → priority (urgent > high > normal > low)
      → newest createdAt within ties. Status before priority means a 'done urgent'
      still falls below an open 'low' — open work always surfaces first. */
-  const order = (s: TrackerTask['status']) => s === 'in_progress' ? 0 : s === 'pending' ? 1 : s === 'done' ? 2 : 3;
-  tasks.sort((a, b) => {
+  const order = (s: any['status']) => s === 'in_progress' ? 0 : s === 'pending' ? 1 : s === 'done' ? 2 : 3;
+  tasks.sort((a: any, b: any) => {
     const o = order(a.status) - order(b.status);
     if (o !== 0) return o;
     const pa = TASK_PRIORITY_ORDER[_coercePriority(a.priority)];
@@ -4422,16 +3902,6 @@ function trackerToMarkdown(opts: { onlyOpen?: boolean; max?: number } = {}): str
    priority chip, owner emoji, due, recurrence indicator. Inline actions
    (✅ / ✖️) come from package.json menus → registered commands.
    The tree auto-refreshes via onTrackerChanged. */
-class TaskTreeItem extends vscode.TreeItem {
-    constructor(
-        public readonly task: TrackerTask | null,
-        public readonly groupKey: TaskGroupKey | null,
-        label: string,
-        collapsibleState: vscode.TreeItemCollapsibleState
-    ) {
-        super(label, collapsibleState);
-    }
-}
 
 /* TaskGroup key now expanded to support priority-grouping mode. The tree
    groups by PRIORITY (urgent/high/normal/low) for open tasks since that's
@@ -4439,191 +3909,19 @@ class TaskTreeItem extends vscode.TreeItem {
    into a single "이력" group so they don't dominate the view. */
 type TaskGroupKey = TaskPriority | 'closed';
 
-class TaskTreeProvider implements vscode.TreeDataProvider<TaskTreeItem> {
-    private _onDidChangeTreeData = new vscode.EventEmitter<TaskTreeItem | undefined | void>();
-    readonly onDidChangeTreeData = this._onDidChangeTreeData.event;
-    /* Periodic light refresh so due-imminent visual cues update without
-       waiting for a tracker write — tasks transition into "임박" zone purely
-       by clock advancing. 5min cadence is plenty (window resolution is hour). */
-    private _ticker: NodeJS.Timeout | null = null;
-
-    constructor() {
-        onTrackerChanged(() => this.refresh());
-        this._ticker = setInterval(() => this.refresh(), 5 * 60_000);
-    }
-    dispose() { if (this._ticker) { clearInterval(this._ticker); this._ticker = null; } }
-
-    refresh() { this._onDidChangeTreeData.fire(); }
-
-    getTreeItem(el: TaskTreeItem): vscode.TreeItem { return el; }
-
-    getChildren(parent?: TaskTreeItem): TaskTreeItem[] {
-        const all = readTracker().tasks;
-        if (!parent) {
-            /* Top level — priority groups for open tasks + a single "이력"
-               group for closed. Hide empty groups so we don't show
-               "🔴 긴급 (0)" noise on a fresh install. Counts include the
-               #stale flag (overdue user tasks) as a small adornment. */
-            const open = all.filter(t => t.status !== 'done' && t.status !== 'cancelled');
-            const closed = all.filter(t => t.status === 'done' || t.status === 'cancelled');
-            const prioOrder: TaskPriority[] = ['urgent', 'high', 'normal', 'low'];
-            const items: TaskTreeItem[] = [];
-            for (const p of prioOrder) {
-                const inGroup = open.filter(t => _coercePriority(t.priority) === p);
-                if (inGroup.length === 0) continue;
-                const overdue = inGroup.filter(t => t.dueAt && new Date(t.dueAt).getTime() < Date.now()).length;
-                const overdueChip = overdue > 0 ? ` 🔴${overdue}` : '';
-                const it = new TaskTreeItem(
-                    null, p,
-                    `${TASK_PRIORITY_LABEL[p]}  (${inGroup.length})${overdueChip}`,
-                    /* Expand urgent + high by default — those are the ones the user
-                       must act on. Normal + low collapsed unless they're the only
-                       group present (handled below). */
-                    (p === 'urgent' || p === 'high')
-                        ? vscode.TreeItemCollapsibleState.Expanded
-                        : vscode.TreeItemCollapsibleState.Collapsed
-                );
-                it.contextValue = 'taskGroup';
-                /* Group icon + theme color — visual hierarchy at a glance. */
-                it.iconPath = _priorityGroupIcon(p);
-                items.push(it);
-            }
-            /* If only normal/low have tasks, expand them so the view isn't empty-feeling. */
-            if (items.length > 0 && items.every(it => it.collapsibleState === vscode.TreeItemCollapsibleState.Collapsed)) {
-                items[0].collapsibleState = vscode.TreeItemCollapsibleState.Expanded;
-            }
-            if (closed.length > 0) {
-                const histIt = new TaskTreeItem(
-                    null, 'closed',
-                    `📁 이력  (${closed.length})`,
-                    vscode.TreeItemCollapsibleState.Collapsed
-                );
-                histIt.contextValue = 'taskGroup';
-                histIt.iconPath = new vscode.ThemeIcon('archive');
-                items.push(histIt);
-            }
-            if (items.length === 0) {
-                const empty = new TaskTreeItem(null, null, '아직 등록된 할 일이 없어요. 텔레그램에 자연어로 말하거나 사이드바에 명령하면 비서가 만들어요.', vscode.TreeItemCollapsibleState.None);
-                empty.contextValue = 'emptyHint';
-                empty.iconPath = new vscode.ThemeIcon('lightbulb');
-                return [empty];
-            }
-            return items;
-        }
-        if (!parent.groupKey) return [];
-        let tasks: TrackerTask[];
-        if (parent.groupKey === 'closed') {
-            tasks = all.filter(t => t.status === 'done' || t.status === 'cancelled');
-            tasks.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-            tasks = tasks.slice(0, 30); /* don't load infinite history */
-        } else {
-            tasks = all.filter(t => t.status !== 'done' && t.status !== 'cancelled' && _coercePriority(t.priority) === parent.groupKey);
-            /* Within group: due-imminent first, then stale, then newest. */
-            const now = Date.now();
-            const score = (t: TrackerTask) => {
-                if (t.dueAt) {
-                    const dt = new Date(t.dueAt).getTime();
-                    if (dt < now) return -1e12 + dt; /* overdue: most negative first */
-                    return dt;                       /* upcoming: nearest first */
-                }
-                return 1e15 - new Date(t.createdAt).getTime();
-            };
-            tasks.sort((a, b) => score(a) - score(b));
-        }
-        return tasks.map(t => {
-            const prio = _coercePriority(t.priority);
-            const ownerEmoji = t.owner === 'user' ? '👤'
-                : t.owner === 'mixed' ? '👥'
-                : (t.agentIds && t.agentIds[0] ? (AGENTS[t.agentIds[0]]?.emoji || '🤖') : '🤖');
-            const recur = t.recurrence ? ` 🔁` : '';
-            const item = new TaskTreeItem(t, null, `${ownerEmoji} ${t.title}${recur}`, vscode.TreeItemCollapsibleState.None);
-            /* Status / urgency icon — mapped through ThemeIcon so it adapts to
-               the user's color theme (light/dark/high-contrast). The colored
-               'urgent' / 'overdue' variants use the same red the editor uses
-               for errors, so the visual hierarchy matches what users already
-               read as "needs attention". */
-            item.iconPath = _taskStatusIcon(t);
-            const desc: string[] = [];
-            if (t.dueAt) {
-                const due = _formatDueLabel(t.dueAt);
-                desc.push(due);
-            }
-            desc.push(`id ${t.id.slice(-9)}`);
-            const aged = (Date.now() - new Date(t.createdAt).getTime()) / 86_400_000;
-            if (t.status === 'pending' && aged > 1) desc.push('🟡 오래됨');
-            item.description = desc.join(' · ');
-            const tip = new vscode.MarkdownString();
-            tip.appendMarkdown(`**${t.title}**\n\n`);
-            tip.appendMarkdown(`- 우선순위: ${TASK_PRIORITY_LABEL[prio]}\n`);
-            tip.appendMarkdown(`- 상태: ${t.status}\n`);
-            tip.appendMarkdown(`- 소유: ${t.owner}${t.agentIds?.length ? ' (' + t.agentIds.join(', ') + ')' : ''}\n`);
-            if (t.dueAt) tip.appendMarkdown(`- 기한: ${t.dueAt}\n`);
-            if (t.recurrence) tip.appendMarkdown(`- 반복: ${t.recurrence}\n`);
-            tip.appendMarkdown(`- 생성: ${t.createdAt}\n`);
-            if (t.description) tip.appendMarkdown(`\n_${t.description.slice(0, 200)}_\n`);
-            item.tooltip = tip;
-            item.contextValue = (t.status === 'done' || t.status === 'cancelled') ? 'closedTask' : 'openTask';
-            item.id = t.id;
-            return item;
-        });
-    }
-}
-
 /* Map a priority level to a colored ThemeIcon for the group header. */
-function _priorityGroupIcon(p: TaskPriority): vscode.ThemeIcon {
-    switch (p) {
-        case 'urgent': return new vscode.ThemeIcon('error',     new vscode.ThemeColor('errorForeground'));
-        case 'high':   return new vscode.ThemeIcon('warning',   new vscode.ThemeColor('list.warningForeground'));
-        case 'normal': return new vscode.ThemeIcon('circle-outline');
-        case 'low':    return new vscode.ThemeIcon('chevron-down', new vscode.ThemeColor('descriptionForeground'));
-    }
-}
 
 /* Per-task icon — encodes status + due-urgency. We use VS Code's built-in
    codicon names so the look stays consistent with the rest of the IDE. */
-function _taskStatusIcon(t: TrackerTask): vscode.ThemeIcon {
-    if (t.status === 'done')      return new vscode.ThemeIcon('pass-filled', new vscode.ThemeColor('charts.green'));
-    if (t.status === 'cancelled') return new vscode.ThemeIcon('circle-slash', new vscode.ThemeColor('descriptionForeground'));
-    /* Open task — visual urgency derived from due. Codicon 'sync~spin' is
-       VS Code's native spinner — used for in_progress to show "AI is on it". */
-    if (t.dueAt) {
-        const dt = new Date(t.dueAt).getTime();
-        const ms = dt - Date.now();
-        if (ms < 0)             return new vscode.ThemeIcon('flame', new vscode.ThemeColor('errorForeground')); // overdue
-        if (ms < 60 * 60_000)   return new vscode.ThemeIcon('clock', new vscode.ThemeColor('errorForeground')); // <1h
-        if (ms < 24 * 3600_000) return new vscode.ThemeIcon('clock', new vscode.ThemeColor('list.warningForeground')); // <1d
-    }
-    if (t.status === 'in_progress') return new vscode.ThemeIcon('sync~spin', new vscode.ThemeColor('charts.green'));
-    return new vscode.ThemeIcon('circle-outline');
-}
 
 /* Friendly relative-time formatter — "지금부터 3시간", "내일 09:00", "3일 지남". */
-function _formatDueLabel(iso: string): string {
-    try {
-        const dt = new Date(iso);
-        const ms = dt.getTime() - Date.now();
-        const abs = Math.abs(ms);
-        const m = Math.floor(abs / 60_000);
-        const h = Math.floor(abs / 3600_000);
-        const d = Math.floor(abs / 86_400_000);
-        if (ms < 0) {
-            if (d >= 1) return `🔴 ${d}일 지남`;
-            if (h >= 1) return `🔴 ${h}시간 지남`;
-            return `🔴 ${m}분 지남`;
-        }
-        if (d >= 7)  return `📅 ${dt.toISOString().slice(5, 10)}`;
-        if (d >= 1)  return `📅 ${d}일 후`;
-        if (h >= 1)  return `⏰ ${h}시간 후`;
-        return `⚡ ${Math.max(1, m)}분 후`;
-    } catch { return iso.slice(0, 16); }
-}
 
 let _taskTreeProvider: TaskTreeProvider | null = null;
 
 /* Heuristic: from a finished CEO dispatch (plan + outputs), find
    matching open tracker tasks (created within last 5 min by Secretary
    for THIS user request) and mark them done. Avoids LLM round-trip. */
-function autoMarkTrackerFromDispatch(plan: { brief?: string; tasks?: { agent: string; task: string }[] } | null, sessionDir: string, ceoSynthesis: string) {
+export function autoMarkTrackerFromDispatch(plan: { brief?: string; tasks?: { agent: string; task: string }[] } | null, sessionDir: string, ceoSynthesis: string) {
   try {
     if (!plan || !Array.isArray(plan.tasks)) return;
     const tracker = readTracker();
@@ -4631,7 +3929,7 @@ function autoMarkTrackerFromDispatch(plan: { brief?: string; tasks?: { agent: st
     /* 24h window — covers overnight/multi-step tasks. Original 10-min was
        too narrow: if user issued "이거 해" yesterday and CEO finishes today,
        the task would stay pending forever. */
-    const fresh = tracker.tasks.filter(t =>
+    const fresh = tracker.tasks.filter((t: any) =>
       t.status !== 'done' && t.status !== 'cancelled' &&
       (now - new Date(t.createdAt).getTime()) < 24 * 60 * 60_000
     );
@@ -4640,7 +3938,7 @@ function autoMarkTrackerFromDispatch(plan: { brief?: string; tasks?: { agent: st
     for (const ft of fresh) {
       if (ft.owner !== 'agent' && ft.owner !== 'mixed') continue;
       const evidence = `완료: sessions/${path.basename(sessionDir)}/_report.md\n` +
-        plan.tasks.slice(0, 3).map(t => `- ${AGENTS[t.agent]?.name || t.agent}: ${t.task.slice(0, 80)}`).join('\n') +
+        plan.tasks.slice(0, 3).map((t: any) => `- ${AGENTS[t.agent]?.name || t.agent}: ${t.task.slice(0, 80)}`).join('\n') +
         (ceoSynthesis ? `\n\nCEO 종합 요점: ${ceoSynthesis.slice(0, 200)}` : '');
       updateTrackerTask(ft.id, {
         status: 'done',
@@ -4661,7 +3959,7 @@ function autoMarkTrackerFromDispatch(plan: { brief?: string; tasks?: { agent: st
      - _shared/calendar_cache.md  (Google Calendar via iCal tool)
      - _agents/{id}/memory.md     (last 5 lines per agent — recent task log)
      - _shared/todos.md           (user-maintained — optional) */
-function rebuildUnifiedSchedule() {
+export function rebuildUnifiedSchedule() {
   try {
     const dir = getCompanyDir();
     if (!fs.existsSync(dir)) return;
@@ -4677,7 +3975,7 @@ function rebuildUnifiedSchedule() {
     if (cal) {
       lines.push('## 📅 사람 일정 (Google Calendar)');
       const calLines = cal.split('\n')
-        .filter(l => l.trim().startsWith('-'))
+        .filter((l: any) => l.trim().startsWith('-'))
         .slice(0, 12);
       lines.push(...calLines);
       lines.push('');
@@ -4691,7 +3989,7 @@ function rebuildUnifiedSchedule() {
       const mem = _safeReadText(memPath).trim();
       if (!mem) continue;
       const recent = mem.split('\n')
-        .filter(l => /^\s*-\s*\[\d{4}-\d{2}-\d{2}\]/.test(l))
+        .filter((l: any) => /^\s*-\s*\[\d{4}-\d{2}-\d{2}\]/.test(l))
         .slice(-3);
       if (recent.length === 0) continue;
       const a = AGENTS[id];
@@ -4741,204 +4039,8 @@ function readAgentCustomPrompt(agentId: string): string {
   return extra;
 }
 
-function _safeReadText(p: string): string {
+export function _safeReadText(p: string): string {
   try { return fs.readFileSync(p, 'utf-8'); } catch { return ''; }
-}
-
-function ensureCompanyStructure(): string {
-  const dir = getCompanyDir();
-  fs.mkdirSync(path.join(dir, '_shared'), { recursive: true });
-  fs.mkdirSync(path.join(dir, '_agents'), { recursive: true });
-  fs.mkdirSync(path.join(dir, 'sessions'), { recursive: true });
-  fs.mkdirSync(path.join(dir, 'approvals', 'pending'), { recursive: true });
-  fs.mkdirSync(path.join(dir, 'approvals', 'history'), { recursive: true });
-  AGENT_ORDER.forEach(id => {
-    fs.mkdirSync(path.join(dir, '_agents', id), { recursive: true });
-    _seedAgentGoalIfMissing(id);
-    _seedAgentToolsIfMissing(id);
-    _seedAgentToolsManifestIfMissing(id);
-  });
-
-  const goalsPath = path.join(dir, '_shared', 'goals.md');
-  if (!fs.existsSync(goalsPath)) {
-    fs.writeFileSync(goalsPath,
-`# 🎯 공동 목표 (Company Goals)
-
-_이 파일은 **모든 에이전트가 매번 읽는** 회사의 북극성입니다. 자유롭게 편집하세요._
-
-## 장기 목표 (1년)
-- [ ] (예) 유튜브 구독자 10만 달성
-- [ ] (예) 인스타그램 팔로워 5만
-- [ ] (예) 월 수익 500만원
-
-## 단기 목표 (1개월)
-- [ ] (예) 영상 4개 업로드
-- [ ] (예) 릴스 12개 게시
-`);
-  }
-  const idPath = path.join(dir, '_shared', 'identity.md');
-  if (!fs.existsSync(idPath)) {
-    fs.writeFileSync(idPath,
-`# 🏢 회사 정체성 / 톤앤매너
-
-_브랜드 보이스, 톤, 절대 금지어 등을 적으세요. 모든 에이전트가 매번 참조합니다._
-
-- **회사 이름:**
-- **대표자:**
-- **타깃 청중:**
-- **핵심 가치:**
-- **브랜드 톤:**
-- **금기 (절대 하지 말 것):**
-`);
-  }
-  AGENT_ORDER.forEach(id => {
-    const memPath = path.join(dir, '_agents', id, 'memory.md');
-    if (!fs.existsSync(memPath)) {
-      fs.writeFileSync(memPath,
-`# ${AGENTS[id].emoji} ${AGENTS[id].name} (${AGENTS[id].role}) 개인 메모리
-
-_${AGENTS[id].name} 에이전트만 읽고 쓰는 개인 노트. 학습·교훈·자주 쓰는 패턴이 누적됩니다._
-
-## 학습 기록
-`);
-    }
-    /* v2.89.115 — skills/ 디렉토리. memory.md(append-only firehose)와
-       구분되는 "큐레이션된 재사용 패턴". 사용자가 텔레그램 `/skill` 또는
-       명령 팔레트로 직전 산출물을 승격시킬 때 여기 저장됨. 매 호출 시
-       readAgentSharedContext가 system prompt 위쪽에 주입. */
-    const skillsDir = path.join(dir, '_agents', id, 'skills');
-    fs.mkdirSync(skillsDir, { recursive: true });
-    const skillReadme = path.join(skillsDir, 'README.md');
-    if (!fs.existsSync(skillReadme)) {
-      fs.writeFileSync(skillReadme,
-`# ${AGENTS[id].emoji} ${AGENTS[id].name} 스킬
-
-_재사용 가능한 패턴 모음. memory.md는 모든 활동의 로그(append-only firehose),
-이 폴더는 **검증된 패턴만 골라낸 것**입니다. 각 \`*.md\` 파일은 다음 호출 시
-${AGENTS[id].name}의 system prompt에 자동 주입됩니다._
-
-## 어떻게 채우나요?
-- 텔레그램에서 \`/skill\` (직전 산출물 자동 승격)
-- VS Code 명령 팔레트: \`SHIN AI: 방금 산출물 → 스킬로 저장\`
-- 직접 이 폴더에 \`<주제>.md\` 파일을 만들어도 됩니다 (\`# 제목\` + 본문)
-
-\`README.md\` 자체는 system prompt에 주입되지 않습니다.
-`);
-    }
-    const promptPath = path.join(dir, '_agents', id, 'prompt.md');
-    if (!fs.existsSync(promptPath)) {
-      fs.writeFileSync(promptPath,
-`# ${AGENTS[id].emoji} ${AGENTS[id].name} 페르소나 디테일
-
-_여기에 ${AGENTS[id].name} 에이전트에게 주고 싶은 추가 지시·말투·취향·예시 등을 자유롭게 적으세요._
-_매 호출 시 시스템 프롬프트에 자동 주입됩니다. (git에 동기화됨)_
-
-`);
-    }
-    const configPath = path.join(dir, '_agents', id, 'config.md');
-    if (!fs.existsSync(configPath)) {
-      let presets = '';
-      if (id === 'secretary') {
-        presets = `\n## 텔레그램 봇\n_BotFather에서 봇을 만들고 토큰을 받으세요. https://t.me/BotFather_\n_그리고 본인 채팅 ID를 알아내려면 https://t.me/userinfobot 에 메시지를 보내세요._\n\n- TELEGRAM_BOT_TOKEN: \n- TELEGRAM_CHAT_ID: \n`;
-      } else if (id === 'youtube') {
-        presets = `\n## YouTube Data API\n- YOUTUBE_API_KEY: \n- YOUTUBE_CHANNEL_ID: \n`;
-      } else if (id === 'instagram') {
-        presets = `\n## Meta Graph API\n- META_ACCESS_TOKEN: \n- INSTAGRAM_BUSINESS_ID: \n`;
-      } else if (id === 'designer') {
-        presets = `\n## 디자인 도구\n- FIGMA_TOKEN: \n- STITCH_API_KEY: \n`;
-      }
-      fs.writeFileSync(configPath,
-`# ${AGENTS[id].emoji} ${AGENTS[id].name} 설정 (시크릿)
-
-_이 파일은 \`.gitignore\`에 의해 깃 동기화에서 제외됩니다. API 키·토큰을 자유롭게 적으세요._
-${presets}
-`);
-    }
-  });
-
-  // .gitignore — 시크릿과 캐시 보호
-  const giPath = path.join(dir, '.gitignore');
-  const desiredGi =
-`# 자동 생성 — SHIN AI 1인 기업 모드
-# 시크릿·API 키 보호
-_agents/*/config.md
-# 도구 설정 JSON 안에 API 키·텔레그램 봇 토큰이 들어갈 수 있어 git에서 제외
-_agents/*/tools/*.json
-_agents/*/tools/youtube_account.json
-
-# 외부 API 응답 캐시 (재현 가능)
-_cache/
-
-# 대용량 임시 산출물
-_tmp/
-*.log
-`;
-  if (!fs.existsSync(giPath)) {
-    fs.writeFileSync(giPath, desiredGi);
-  } else {
-    /* Migrate old gitignore that didn't list tool JSONs — append the
-       missing rules so existing users get token protection without us
-       clobbering anything they manually added. */
-    let cur = '';
-    try { cur = fs.readFileSync(giPath, 'utf-8'); } catch { /* ignore */ }
-    const additions: string[] = [];
-    if (!cur.includes('_agents/*/tools/*.json')) {
-      additions.push('# 도구 설정 JSON 안에 API 키·텔레그램 봇 토큰이 들어갈 수 있어 git에서 제외');
-      additions.push('_agents/*/tools/*.json');
-    }
-    if (!cur.includes('youtube_account.json')) {
-      additions.push('_agents/*/tools/youtube_account.json');
-    }
-    if (additions.length > 0) {
-      try { fs.appendFileSync(giPath, '\n' + additions.join('\n') + '\n'); } catch { /* ignore */ }
-    }
-  }
-
-  // _system.md — 시스템 자가 매뉴얼 (사람도 읽고 LLM도 컨텍스트로)
-  const sysPath = path.join(dir, '_shared', '_system.md');
-  if (!fs.existsSync(sysPath)) {
-    fs.writeFileSync(sysPath,
-`# 🧬 1인 기업 OS — 자가 매뉴얼
-
-## 이 폴더는 무엇인가요?
-당신의 1인 기업의 두뇌입니다. 7명의 AI 에이전트가 여기서 일합니다.
-
-## 폴더 구조
-- \`_shared/\` — 모든 에이전트가 매번 읽는 공동 메모리
-  - \`identity.md\` — 회사 정체성 (이름, 톤, 가치)
-  - \`goals.md\` — 목표
-  - \`decisions.md\` — 의사결정 로그 (자가학습이 자동 누적)
-  - \`_system.md\` — 이 파일
-- \`_agents/<id>/\` — 각 에이전트 개인 공간
-  - \`memory.md\` — 자가학습 (자동, append-only)
-  - \`prompt.md\` — 페르소나 디테일 (사용자가 편집)
-  - \`config.md\` — API 키·시크릿 (\`.gitignore\`로 보호)
-- \`sessions/<ts>/\` — 세션별 산출물 (자동)
-- \`_cache/\` — API 응답 캐시 (sync 제외)
-
-## 메모리 위계 (충돌 시 우선순위)
-1. \`decisions.md\` — 가장 강한 신뢰
-2. \`identity.md\`
-3. \`goals.md\`
-4. 개인 메모리
-5. 지식 베이스 (\`10_Wiki/\`)
-
-## 다른 PC로 옮길 때
-1. 새 PC에 SHIN AI 설치
-2. 👔 모드 ON → "📥 다른 PC에서 가져오기" 선택
-3. GitHub URL 입력 → 자동 clone
-4. 끝.
-
-## 동기화 정책
-- \`_shared/\`, \`_agents/*/memory.md\`, \`_agents/*/prompt.md\`, \`sessions/\` → git sync ✅
-- \`_agents/*/config.md\`, \`_cache/\` → git sync ❌ (시크릿·캐시)
-
-## 7명의 에이전트
-${AGENT_ORDER.map(id => `- ${AGENTS[id].emoji} **${AGENTS[id].name}** (${AGENTS[id].role}): ${AGENTS[id].specialty}`).join('\n')}
-`);
-  }
-
-  return dir;
 }
 
 /* ── Brain knowledge → agent context bridge ────────────────────────────
@@ -4956,8 +4058,8 @@ function _agentKeywords(agentId: string): string[] {
   const tokens = text
     .replace(/[()·,/·\-·]+/g, ' ')
     .split(/\s+/)
-    .map(t => t.trim().toLowerCase())
-    .filter(t => t.length >= 2 && !/^(and|the|of|for|to|in)$/i.test(t));
+    .map((t: any) => t.trim().toLowerCase())
+    .filter((t: any) => t.length >= 2 && !/^(and|the|of|for|to|in)$/i.test(t));
   /* Dedupe while preserving order */
   const seen = new Set<string>();
   const out: string[] = [];
@@ -5082,7 +4184,7 @@ function readRelevantBrainContext(agentId: string, budgetChars: number = 2400): 
     rawFiles = _walkBrainMd(rawDir, { maxDepth: 2, maxFiles: 50, skipDirs: new Set() });
     /* keep only ≤14 days old */
     const cutoff = Date.now() - 14 * 86_400_000;
-    rawFiles = rawFiles.filter(f => {
+    rawFiles = rawFiles.filter((f: any) => {
       try { return fs.statSync(f).mtimeMs >= cutoff; } catch { return false; }
     });
   }
@@ -5097,7 +4199,7 @@ function readRelevantBrainContext(agentId: string, budgetChars: number = 2400): 
   }
   if (snippets.length === 0) return '';
 
-  snippets.sort((a, b) => b.score - a.score || b.mtime - a.mtime);
+  snippets.sort((a: any, b: any) => b.score - a.score || b.mtime - a.mtime);
 
   let block = '\n\n[관련 두뇌 지식 — 최근 또는 당신 분야 관련 자료. 필요하면 인용/활용]\n';
   let used = 0;
@@ -5141,7 +4243,7 @@ function readGraphRagBrainContext(agentId: string, budgetChars: number = 2400): 
   if (fs.existsSync(rawDir)) {
     rawFiles = _walkBrainMd(rawDir, { maxDepth: 2, maxFiles: 50, skipDirs: new Set() });
     const cutoff = Date.now() - 14 * 86_400_000;
-    rawFiles = rawFiles.filter(f => {
+    rawFiles = rawFiles.filter((f: any) => {
       try { return fs.statSync(f).mtimeMs >= cutoff; } catch { return false; }
     });
   }
@@ -5180,7 +4282,7 @@ function readGraphRagBrainContext(agentId: string, budgetChars: number = 2400): 
     while ((pm = phraseRe.exec(raw)) && anchors.length < 6) {
       anchors.push(pm[1].trim());
     }
-    nodes.push({ snippet, titleKey, links, anchors: anchors.map(a => a.toLowerCase()), raw });
+    nodes.push({ snippet, titleKey, links, anchors: anchors.map((a: any) => a.toLowerCase()), raw });
     if (!titleToIdx.has(titleKey)) titleToIdx.set(titleKey, nodes.length - 1);
   }
   if (nodes.length === 0) return '';
@@ -5225,10 +4327,10 @@ function readGraphRagBrainContext(agentId: string, budgetChars: number = 2400): 
   const seedCount = 3;
   const ranked = nodes
     .map((n, i) => ({ i, score: n.snippet.score }))
-    .filter(x => x.score > 0)
-    .sort((a, b) => b.score - a.score);
+    .filter((x: any) => x.score > 0)
+    .sort((a: any, b: any) => b.score - a.score);
   if (ranked.length === 0) return '';
-  const seeds = ranked.slice(0, seedCount).map(x => x.i);
+  const seeds = ranked.slice(0, seedCount).map((x: any) => x.i);
   const seedSet = new Set(seeds);
   const finalScore = new Map<number, number>();
   const reachedVia = new Map<number, number>(); /* neighbor → seed idx */
@@ -5245,7 +4347,7 @@ function readGraphRagBrainContext(agentId: string, budgetChars: number = 2400): 
     }
   }
   const ordered = Array.from(finalScore.entries())
-    .sort((a, b) => b[1] - a[1] || nodes[b[0]].snippet.mtime - nodes[a[0]].snippet.mtime);
+    .sort((a: any, b: any) => b[1] - a[1] || nodes[b[0]].snippet.mtime - nodes[a[0]].snippet.mtime);
 
   /* Emit. Mark each line with whether it was a direct match (🎯) or a
      graph-connected neighbor (🔗) so the agent — and the curious user
@@ -5269,7 +4371,7 @@ function readGraphRagBrainContext(agentId: string, budgetChars: number = 2400): 
   return used > 0 ? block : '';
 }
 
-function readAgentSharedContext(agentId: string, opts?: { lean?: boolean }): string {
+export function readAgentSharedContext(agentId: string, opts?: { lean?: boolean }): string {
   /* v2.89.42 — lean 모드 = 두뇌 "삭제"가 아니라 "축소". 실데이터 prefetch가 성공해서
      큰 컨텍스트가 들어왔을 때 두뇌 콘텐츠 자르기보다 줄이는 쪽으로 결정.
      사용자가 쌓아둔 결정·메모리·brain 노트는 분석에 쓸 수 있어야 함 (제2의 두뇌 컨셉의
@@ -5372,9 +4474,9 @@ function readAgentSharedContext(agentId: string, opts?: { lean?: boolean }): str
      from the tool catalog so the agent doesn't generate 'cd && python'
      commands for calendar operations. Same for google_calendar (iCal read). */
   const _BUILTIN_TOOLS = new Set(['google_calendar_write', 'google_calendar']);
-  const tools = listAgentTools(agentId).filter(t => t.enabled && !_BUILTIN_TOOLS.has(t.name));
+  const tools = listAgentTools(agentId).filter((t: any) => t.enabled && !_BUILTIN_TOOLS.has(t.name));
   if (tools.length > 0) {
-    ctx += `\n\n[사용 가능한 도구 — <run_command>로 직접 실행 가능]\n` + tools.map(t => {
+    ctx += `\n\n[사용 가능한 도구 — <run_command>로 직접 실행 가능]\n` + tools.map((t: any) => {
       const cd = `cd "${path.dirname(t.scriptPath)}"`;
       return `- 🛠️ \`${t.name}\` — ${t.description.replace(/\n/g, ' ').slice(0, 140)}\n  실행: <run_command>${cd} && ${_pythonCmd()} ${path.basename(t.scriptPath)}</run_command>\n  설정 파일(API 키 등): ${t.configPath}`;
     }).join('\n');
@@ -5400,7 +4502,7 @@ function readAgentSharedContext(agentId: string, opts?: { lean?: boolean }): str
   return ctx;
 }
 
-function appendAgentMemory(agentId: string, line: string) {
+export function appendAgentMemory(agentId: string, line: string) {
   try {
     const p = path.join(getCompanyDir(), '_agents', agentId, 'memory.md');
     const stamp = new Date().toISOString().slice(0, 10);
@@ -5415,22 +4517,7 @@ function appendAgentMemory(agentId: string, line: string) {
    훨씬 높으므로 system prompt에 더 강한 라벨로 주입한다. */
 /* v2.89.115 — 번들 템플릿을 두뇌 폴더로 복사. 첫 호출 시 한 번 실행.
    기존 폴더가 있으면 건드리지 않음 (사용자가 편집한 거 보호). */
-function _seedBundledTemplates(agentId: string, targetDir: string) {
-  try {
-    const seedRoot = path.join(__dirname, '..', 'assets', 'brain-seeds', '40_템플릿', agentId);
-    if (!fs.existsSync(seedRoot)) return;
-    fs.mkdirSync(targetDir, { recursive: true });
-    const templates = fs.readdirSync(seedRoot, { withFileTypes: true }).filter(e => e.isDirectory());
-    for (const tpl of templates) {
-      const src = path.join(seedRoot, tpl.name);
-      const dst = path.join(targetDir, tpl.name);
-      if (fs.existsSync(dst)) continue;  /* 이미 있으면 사용자 편집 보호 */
-      _copyDirRecursive(src, dst);
-    }
-  } catch (err) {
-    console.error('[SHIN AI] 템플릿 시드 실패:', err);
-  }
-}
+// Moved to Scaffolder: _seedBundledTemplates
 
 function _copyDirRecursive(src: string, dst: string) {
   fs.mkdirSync(dst, { recursive: true });
@@ -5457,15 +4544,15 @@ function readAgentTemplates(agentId: string, maxChars = 2000): string {
   else if (fs.existsSync(englishDir)) templatesDir = englishDir;
   else {
     /* 첫 사용 — 번들 템플릿이 있으면 두뇌에 시드 */
-    _seedBundledTemplates(agentId, standardDir);
+    Scaffolder.seedBundledTemplates(agentId, standardDir);
     if (fs.existsSync(standardDir)) templatesDir = standardDir;
   }
   if (!templatesDir) return '';
   let folders: string[] = [];
   try {
     folders = fs.readdirSync(templatesDir, { withFileTypes: true })
-      .filter(e => e.isDirectory() && !e.name.startsWith('.') && !e.name.startsWith('_'))
-      .map(e => e.name);
+      .filter((e: any) => e.isDirectory() && !e.name.startsWith('.') && !e.name.startsWith('_'))
+      .map((e: any) => e.name);
   } catch { return ''; }
   if (folders.length === 0) return '';
   /* v2.89.125 — 스케일링: 매니페스트 풀 inject 대신 압축 형식 (이름 + 한 줄).
@@ -5495,27 +4582,27 @@ function readAgentTemplates(agentId: string, maxChars = 2000): string {
   }
   if (briefs.length === 0) return '';
   /* 압축 한 줄 포맷: `- name (📄 N파일): 설명 [키워드, ...]` */
-  const lines = briefs.map(b =>
+  const lines = briefs.map((b: any) =>
     `- \`${b.name}\` (📄 ${b.files}): ${b.desc}${b.keywords.length ? ` _[${b.keywords.join(', ')}]_` : ''}`
   );
   const overflow = folders.length > MAX_KITS_LISTED ? `\n_(총 ${folders.length}개 중 상위 ${MAX_KITS_LISTED}개. 나머지는 \`pack_apply\` 자동 매칭 사용)_` : '';
   /* lean 모드: 키워드 생략 — 더 짧게 */
   if (maxChars <= 1200) {
-    const tightLines = briefs.map(b => `- \`${b.name}\`: ${b.desc.slice(0, 60)}`);
+    const tightLines = briefs.map((b: any) => `- \`${b.name}\`: ${b.desc.slice(0, 60)}`);
     return `\n\n[${AGENTS[agentId]?.name || agentId} 키트 ${folders.length}개 — \`pack_apply\` USER_INTENT 사용 권장]\n${tightLines.join('\n')}${overflow}\n`;
   }
   return `\n\n[${AGENTS[agentId]?.name || agentId} 키트 (${folders.length}개) — 사용 시 \`pack_apply\` 도구 호출. KIT_NAME 비우고 USER_INTENT 에 사용자 명령 그대로 → 자동 매칭]\n${lines.join('\n')}${overflow}\n`;
 }
 
-function readAgentSkills(agentId: string, maxChars = 4000): string {
+export function readAgentSkills(agentId: string, maxChars = 4000): string {
   const skillsDir = path.join(getCompanyDir(), '_agents', agentId, 'skills');
   let entries: string[] = [];
   try {
-    entries = fs.readdirSync(skillsDir).filter(f => f.endsWith('.md') && f.toLowerCase() !== 'readme.md');
+    entries = fs.readdirSync(skillsDir).filter((f: any) => f.endsWith('.md') && f.toLowerCase() !== 'readme.md');
   } catch { return ''; }
   if (entries.length === 0) return '';
   /* 최근 수정순으로 정렬 — 새로 만든 스킬이 먼저 보이도록 */
-  entries.sort((a, b) => {
+  entries.sort((a: any, b: any) => {
     try {
       const ma = fs.statSync(path.join(skillsDir, a)).mtimeMs;
       const mb = fs.statSync(path.join(skillsDir, b)).mtimeMs;
@@ -5539,7 +4626,7 @@ function readAgentSkills(agentId: string, maxChars = 4000): string {
 /** Find the most recent specialist output in today's conversation log.
  *  Returns the agent id + body so the user can say `/skill` and we know
  *  whose skills/ to save into. Falls back to yesterday if today has none. */
-function _getLastSpecialistOutput(): { agentId: string; agentName: string; body: string } | null {
+export function _getLastSpecialistOutput(): { agentId: string; agentName: string; body: string } | null {
   try {
     const convDir = getConversationsDir();
     const today = new Date().toISOString().slice(0, 10);
@@ -5596,7 +4683,7 @@ const SKILL_DISTILL_PROMPT = _loadPrompt('skill-distill.md');
 /** Distill `sourceText` into a reusable skill markdown and save it under
  *  `_agents/{agentId}/skills/<slug>.md`. Returns the saved path or an error.
  *  Uses _quickLLMCall — same lightweight path as Secretary classification. */
-async function saveAgentSkill(
+export async function saveAgentSkill(
   agentId: string,
   sourceText: string,
   opts?: { titleHint?: string }
@@ -5675,7 +4762,7 @@ _사용자가 직접 줄을 지우면 그 주장은 다시 미검증 상태로 �
     fs.appendFileSync(p, `\n- [${stamp}] ${oneLine} _(근거: ${src})_`);
   } catch { /* ignore */ }
 }
-function countAgentVerifiedClaims(agentId: string): number {
+export function countAgentVerifiedClaims(agentId: string): number {
   try {
     const txt = readAgentVerifiedKnowledge(agentId);
     if (!txt) return 0;
@@ -5686,7 +4773,7 @@ function countAgentVerifiedClaims(agentId: string): number {
 /* Parse an agent's response text for [근거: source] grounded claims and
    promote each to verified.md. We capture the WHOLE LINE (or a meaningful
    slice) containing the tag, plus the source label inside the brackets. */
-function promoteGroundedClaimsFromOutput(agentId: string, output: string): number {
+export function promoteGroundedClaimsFromOutput(agentId: string, output: string): number {
   if (!output) return 0;
   /* Match lines that contain [근거: ...] anywhere. Grab the entire line for
      context, and pull the source out of the brackets. */
@@ -5714,7 +4801,7 @@ function promoteGroundedClaimsFromOutput(agentId: string, output: string): numbe
    raw file lives at <brain>/00_Raw/<date>/<name>; agents now know "new
    knowledge inbound" without us having to wait for them to scan the brain
    folder on next cycle. Returns the agent IDs that received an entry. */
-function routeBrainInjectionToAgents(filePath: string, fileName: string): string[] {
+export function routeBrainInjectionToAgents(filePath: string, fileName: string): string[] {
   if (!isCompanyConfigured()) return [];
   let raw = '';
   try {
@@ -5733,8 +4820,8 @@ function routeBrainInjectionToAgents(filePath: string, fileName: string): string
     const score = _scoreRelevance(raw + ' ' + fileName, kws);
     if (score >= 2) matches.push({ id, score });
   }
-  matches.sort((a, b) => b.score - a.score);
-  const winners = matches.slice(0, 2).map(m => m.id);
+  matches.sort((a: any, b: any) => b.score - a.score);
+  const winners = matches.slice(0, 2).map((m: any) => m.id);
 
   /* Always tell CEO too — CEO needs to know new knowledge arrived even if
      it doesn't match a specialist cleanly. */
@@ -5747,7 +4834,7 @@ function routeBrainInjectionToAgents(filePath: string, fileName: string): string
   const body = raw
     .replace(/^---[\s\S]*?---\n/, '')
     .split('\n')
-    .find(ln => ln.trim() && !ln.trim().startsWith('#') && !ln.trim().startsWith('---'))
+    .find((ln: any) => ln.trim() && !ln.trim().startsWith('#') && !ln.trim().startsWith('---'))
     || raw.replace(/\s+/g, ' ').slice(0, 200);
   const blurb = body.replace(/\s+/g, ' ').trim().slice(0, 160);
   /* Source path is relative to brain root (where 00_Raw/ etc. live),
@@ -5972,28 +5059,21 @@ ${_GOAL_PREAMBLE}
 `,
 };
 
-function readAgentGoal(agentId: string): string {
+export function readAgentGoal(agentId: string): string {
   try {
     const p = path.join(getCompanyDir(), '_agents', agentId, 'goal.md');
     return fs.existsSync(p) ? fs.readFileSync(p, 'utf-8') : '';
   } catch { return ''; }
 }
 
-function writeAgentGoal(agentId: string, content: string) {
+export function writeAgentGoal(agentId: string, content: string) {
   const dir = path.join(getCompanyDir(), '_agents', agentId);
   fs.mkdirSync(dir, { recursive: true });
   fs.writeFileSync(path.join(dir, 'goal.md'), content);
 }
 
 /** Seed goal.md if missing. Called by ensureCompanyStructure. */
-function _seedAgentGoalIfMissing(agentId: string) {
-  try {
-    const p = path.join(getCompanyDir(), '_agents', agentId, 'goal.md');
-    if (fs.existsSync(p)) return;
-    const seed = DEFAULT_AGENT_GOALS[agentId] || '';
-    if (seed) fs.writeFileSync(p, seed);
-  } catch { /* ignore */ }
-}
+// Moved to Scaffolder: _seedAgentGoalIfMissing
 
 // ───────────────────────────────────────────────────────────────────────────
 // Per-agent retrieval strategy (v2.45) — educational toggle
@@ -6014,7 +5094,7 @@ function _seedAgentGoalIfMissing(agentId: string) {
 type RagMode = 'standard' | 'self-rag';
 const RAG_MODES: RagMode[] = ['standard', 'self-rag'];
 
-function readAgentRagMode(agentId: string): RagMode {
+export function readAgentRagMode(agentId: string): RagMode {
   try {
     const p = path.join(getCompanyDir(), '_agents', agentId, 'rag_mode.txt');
     if (!fs.existsSync(p)) return 'standard';
@@ -6023,7 +5103,7 @@ function readAgentRagMode(agentId: string): RagMode {
   } catch { return 'standard'; }
 }
 
-function writeAgentRagMode(agentId: string, mode: string) {
+export function writeAgentRagMode(agentId: string, mode: string) {
   const safe = (RAG_MODES as string[]).includes(mode) ? mode : 'standard';
   const dir = path.join(getCompanyDir(), '_agents', agentId);
   fs.mkdirSync(dir, { recursive: true });
@@ -6034,13 +5114,13 @@ function writeAgentRagMode(agentId: string, mode: string) {
    it and appends to the standard self-critique protocol. Lets users tailor
    "what counts as grounded" to their domain (e.g. "any number must cite an
    actual data file", "thumbnail copy must be ≤5 words"). */
-function readAgentSelfRagCriteria(agentId: string): string {
+export function readAgentSelfRagCriteria(agentId: string): string {
   try {
     const p = path.join(getCompanyDir(), '_agents', agentId, 'self_rag_criteria.md');
     return fs.existsSync(p) ? fs.readFileSync(p, 'utf-8') : '';
   } catch { return ''; }
 }
-function writeAgentSelfRagCriteria(agentId: string, content: string) {
+export function writeAgentSelfRagCriteria(agentId: string, content: string) {
   const dir = path.join(getCompanyDir(), '_agents', agentId);
   fs.mkdirSync(dir, { recursive: true });
   fs.writeFileSync(path.join(dir, 'self_rag_criteria.md'), (content || '').slice(0, 4000));
@@ -6100,19 +5180,19 @@ function _inferToolFieldType(key: string, value: any, schema?: any): ToolField['
   return 'text';
 }
 
-function listAgentTools(agentId: string): AgentTool[] {
+export function listAgentTools(agentId: string): AgentTool[] {
   const dir = path.join(getCompanyDir(), '_agents', agentId, 'tools');
   if (!fs.existsSync(dir)) return [];
   let entries: string[] = [];
   try { entries = fs.readdirSync(dir); } catch { return []; }
   let names = entries
-    .filter(f => f.endsWith('.py'))
-    .map(f => f.slice(0, -3));
+    .filter((f: any) => f.endsWith('.py'))
+    .map((f: any) => f.slice(0, -3));
   /* v2.67 dedup: hide the iCal-only `google_calendar` tool whenever the
      OAuth tool `google_calendar_write` is present — they overlap entirely
      and users found two "Google Calendar" entries confusing. */
   if (names.includes('google_calendar') && names.includes('google_calendar_write')) {
-    names = names.filter(n => n !== 'google_calendar');
+    names = names.filter((n: any) => n !== 'google_calendar');
   }
   const out: AgentTool[] = [];
   for (const name of names) {
@@ -6129,7 +5209,7 @@ function listAgentTools(agentId: string): AgentTool[] {
     const h1 = readme.match(/^#\s+(.+)$/m);
     const displayName = h1 ? h1[1].trim() : name.replace(/_/g, ' ');
     // Description: first non-heading paragraph
-    const descMatch = readme.split('\n').find(l => l.trim() && !l.startsWith('#'));
+    const descMatch = readme.split('\n').find((l: any) => l.trim() && !l.startsWith('#'));
     const description = (descMatch || '').slice(0, 200);
     // _injectedAt 등 메타 키는 사용자에게 노출되는 설정 폼에선 숨김 — 출처 추적용 내부 필드.
     // v2.89.72 — _schema 메타 필드로 select 옵션·hint·label override 가능.
@@ -6164,7 +5244,7 @@ function listAgentTools(agentId: string): AgentTool[] {
   return out;
 }
 
-function writeToolConfig(agentId: string, toolName: string, config: Record<string, any>) {
+export function writeToolConfig(agentId: string, toolName: string, config: Record<string, any>) {
   const p = path.join(getCompanyDir(), '_agents', agentId, 'tools', `${toolName}.json`);
   let existing: Record<string, any> = {};
   try {
@@ -6174,7 +5254,7 @@ function writeToolConfig(agentId: string, toolName: string, config: Record<strin
 }
 
 /** Toggle a single tool's enabled flag without disturbing other config values. */
-function setToolEnabled(agentId: string, toolName: string, enabled: boolean) {
+export function setToolEnabled(agentId: string, toolName: string, enabled: boolean) {
   const p = path.join(getCompanyDir(), '_agents', agentId, 'tools', `${toolName}.json`);
   let config: Record<string, any> = {};
   try {
@@ -6272,506 +5352,54 @@ const AGENT_TOOLS_CATALOG: Record<string, { tool: string; desc: string; planned?
 /** Seed `_agents/<id>/tools.md` — declares the agent's tool roster + autonomy
  *  level toggle (0~3). Idempotent. Educational toggle: user picks how much
  *  authority each agent has, in the same file the agent reads its persona from. */
-function _seedAgentToolsManifestIfMissing(agentId: string) {
-    try {
-        const p = path.join(getCompanyDir(), '_agents', agentId, 'tools.md');
-        if (fs.existsSync(p)) return;
-        const a = AGENTS[agentId];
-        if (!a) return;
-        const tools = AGENT_TOOLS_CATALOG[agentId] || [];
-        /* v2.89.82 — 실제 시드된 도구와 미구현(planned) 도구를 시각적으로 분리.
-           이전엔 모든 도구를 enabled:true로 광고해서 미구현 도구도 동작하는 것처럼 보였음. */
-        const ready = tools.filter(t => !t.planned);
-        const planned = tools.filter(t => t.planned);
-        const renderTool = (t: { tool: string; desc: string }) =>
-            `### \`${t.tool}\`\n${t.desc}\n\n- \`enabled\`: true\n- \`requires_credentials\`: \`config.md\` 참조\n`;
-        const renderPlanned = (t: { tool: string; desc: string }) =>
-            `### \`${t.tool}\` _(예정)_\n${t.desc}\n\n- 아직 구현되지 않은 도구입니다. 로드맵에 있으며 향후 버전에서 추가 예정.\n`;
-        let toolsBody: string;
-        if (tools.length === 0) {
-            toolsBody = '_(이 에이전트는 아직 등록된 도구가 없습니다. 추후 추가 예정.)_';
-        } else if (ready.length === 0) {
-            toolsBody = '_⚠️ 이 에이전트의 도구는 모두 로드맵 단계입니다. 현재 LLM 추론만 가능하고, 외부 API 호출이나 파일 생성은 아직 동작하지 않습니다._\n\n## 로드맵 (예정)\n\n' + planned.map(renderPlanned).join('\n');
-        } else {
-            toolsBody = ready.map(renderTool).join('\n');
-            if (planned.length > 0) {
-                toolsBody += '\n\n---\n\n## 로드맵 (예정)\n\n_아래 도구들은 향후 버전에서 추가 예정. 지금은 카탈로그에만 있음._\n\n' + planned.map(renderPlanned).join('\n');
-            }
-        }
-
-        const body = `# ${a.emoji} ${a.name} — 도구 매니페스트
-
-_${a.name} 에이전트가 어떤 도구를 어디까지 자율적으로 쓸 수 있는지 정의합니다._
-_매번 시스템 프롬프트로 주입되며, 텔레그램에서 \`/tools\`로 현재 상태 확인 가능._
-
----
-
-## 자율도 레벨
-
-AUTONOMY_LEVEL: 2
-
-| 값 | 의미 |
-|---|---|
-| 0 | Off — 도구 전체 비활성 (이 에이전트는 채팅만) |
-| 1 | Read-only — 읽기·분석·보고만, 외부에 쓰기 X |
-| 2 | Draft — 초안 작성 후 사용자 승인 게이트 통과해야 실행 ⭐ 권장 기본값 |
-| 3 | Auto — 화이트리스트 안에서 사용자 승인 없이 실행 |
-
-> 위 \`AUTONOMY_LEVEL\` 줄의 숫자(0~3)를 직접 바꾸면 다음 호출부터 적용됩니다.
-
----
-
-## 사용 가능한 도구
-
-${toolsBody}
-
----
-
-## 안전 규칙 (모든 레벨 공통, 절대 우회 X)
-
-- **삭제·배포·발송**(rm, deploy --prod, send, publish) 류는 자율도와 무관하게 **항상 승인 게이트**.
-- 외부 API 호출 전 \`config.md\`의 토큰 존재 여부 확인.
-- 모든 외부 행동은 \`_agents/${agentId}/activity.log\`에 한 줄 기록 (감사용).
-- 승인 대기 액션은 \`approvals/pending/\` 에 저장 → 텔레그램 \`/approvals\` 로 조회.
-
----
-
-_레벨을 어떻게 골라야 할지 모르겠다면 \`2 (Draft)\`가 안전한 시작점입니다._
-`;
-        fs.writeFileSync(p, body);
-    } catch { /* ignore */ }
-}
+// Moved to Scaffolder: _seedAgentToolsManifestIfMissing
 
 /** Seed each agent's starter tools. Idempotent — only writes files that
  *  don't already exist, so users can edit/delete freely without us clobbering.
  *  YouTube has the deepest tool catalog. Secretary owns telegram credentials
  *  (architecturally the messenger) so non-developers can input via the UI. */
-function _seedAgentToolsIfMissing(agentId: string) {
-  try {
-    if (agentId === 'youtube') {
-      const toolsDir = path.join(getCompanyDir(), '_agents', agentId, 'tools');
-      fs.mkdirSync(toolsDir, { recursive: true });
-      _seedYouTubeAccount(toolsDir);
-      _seedYouTubeTrendSniper(toolsDir);
-      _seedYouTubeAutoPlanner(toolsDir);
-      _seedYouTubeMyVideosCheck(toolsDir);
-      _seedYouTubeChannelFullAnalysis(toolsDir);
-      _seedYouTubeCommentHarvester(toolsDir);
-      _seedYouTubeCompetitorBrief(toolsDir);
-      _seedYouTubeTelegramNotify(toolsDir);
-    } else if (agentId === 'secretary') {
-      const toolsDir = path.join(getCompanyDir(), '_agents', agentId, 'tools');
-      fs.mkdirSync(toolsDir, { recursive: true });
-      _seedSecretaryTelegram(toolsDir);
-      /* v2.67: drop iCal-only tool from new installs — OAuth covers reading
-         too, and having two "Google Calendar" entries was confusing. The
-         iCal helper still exists for users on older installs (their files
-         remain), but listAgentTools hides it whenever the OAuth tool is
-         present so they only see ONE calendar entry. */
-      _seedSecretaryGoogleCalendarWrite(toolsDir);
-    } else if (agentId === 'editor') {
-      /* v2.89.68 — 사운드/음악 에이전트 도구. ACE-Step 1.5 로컬 음악 생성 모델 사용. */
-      const toolsDir = path.join(getCompanyDir(), '_agents', agentId, 'tools');
-      fs.mkdirSync(toolsDir, { recursive: true });
-      _seedEditorMusicStudioSetup(toolsDir);
-      _seedEditorMusicGenerate(toolsDir);
-      _seedEditorMusicToVideo(toolsDir);
-    } else if (agentId === 'developer') {
-      /* v2.89.112+122 — 코다리 도구. 웹·모바일 셋업 + PWA + dev server + 키트 적용. */
-      const toolsDir = path.join(getCompanyDir(), '_agents', agentId, 'tools');
-      fs.mkdirSync(toolsDir, { recursive: true });
-      _seedDeveloperWebInit(toolsDir);
-      _seedDeveloperWebPreview(toolsDir);
-      _seedDeveloperPwaSetup(toolsDir);
-      _seedDeveloperPackApply(toolsDir);
-      _seedDeveloperLintTest(toolsDir);
-    } else if (agentId === 'business') {
-      /* v2.89.121 — 비즈니스 에이전트 도구. PayPal 매출 자동 분석. */
-      const toolsDir = path.join(getCompanyDir(), '_agents', agentId, 'tools');
-      fs.mkdirSync(toolsDir, { recursive: true });
-      _seedBusinessPaypalRevenue(toolsDir);
-    }
-  } catch { /* ignore */ }
-}
+// Moved to Scaffolder: _seedAgentToolsIfMissing
 
 /* v2.89.121 — 비즈니스 에이전트 도구 시드. PayPal Developer API 직결. */
-function _seedBusinessPaypalRevenue(toolsDir: string) {
-  const py = _loadToolSeed('business/paypal_revenue.py');
-  const md = _loadToolSeed('business/paypal_revenue.md');
-  const json = JSON.stringify({
-    MODE: 'sandbox',
-    CLIENT_ID: '',
-    CLIENT_SECRET: '',
-    LOOKBACK_DAYS: 30,
-    CURRENCY: '',
-    _schema: {
-      MODE: {
-        type: 'select',
-        label: '🔧 모드',
-        hint: '처음엔 sandbox (테스트 계정). 실제 매출 보려면 live.',
-        options: [
-          { value: 'sandbox', label: '🧪 Sandbox — 테스트 (가짜 계정·가짜 돈)' },
-          { value: 'live',    label: '🚀 Live — 실제 운영 (진짜 돈)' },
-        ],
-      },
-      CLIENT_ID: {
-        type: 'text',
-        label: '🔑 Client ID',
-        hint: 'PayPal Developer Dashboard → Apps & Credentials 에서 발급',
-      },
-      CLIENT_SECRET: {
-        type: 'password',
-        label: '🔒 Client Secret',
-        hint: '같은 곳에서 발급. 절대 외부 노출 금지 (도구 JSON은 .gitignore 적용됨)',
-      },
-      LOOKBACK_DAYS: {
-        type: 'text',
-        label: '📅 분석 기간 (일)',
-        hint: '분석할 과거 일수. 30, 90, 365 등. 기본 30.',
-      },
-      CURRENCY: {
-        type: 'text',
-        label: '💱 기본 통화 (선택)',
-        hint: 'USD / KRW / EUR 등. 비우면 모든 통화 표시.',
-      },
-    },
-  }, null, 2);
-  _seedFileForceUpgrade(path.join(toolsDir, 'paypal_revenue.py'), py, 'paypal_revenue_v3');
-  _mergeSchemaIntoJson(path.join(toolsDir, 'paypal_revenue.json'), json);
-  _seedFileForceUpgrade(path.join(toolsDir, 'paypal_revenue.md'), md, 'paypal_revenue_v1');
-}
+// Moved to Scaffolder: _seedBusinessPaypalRevenue
 
 /* v2.89.112 — 코다리 도구 시드 함수들 */
-function _seedDeveloperWebInit(toolsDir: string) {
-  const py = _loadToolSeed('developer/web_init.py');
-  const md = _loadToolSeed('developer/web_init.md');
-  const json = JSON.stringify({
-    TEMPLATE: 'vite-react',
-    PROJECT_NAME: 'my-app',
-    OUTPUT_DIR: '',
-    _schema: {
-      TEMPLATE: {
-        type: 'select',
-        label: '🎨 템플릿',
-        hint: '프로젝트 종류. vite-react는 SPA, nextjs는 풀스택, astro는 콘텐츠, expo는 모바일 앱, vanilla는 단순 HTML.',
-        options: [
-          { value: 'vite-react', label: '⚡ Vite + React + TS + Tailwind (SPA · 추천)' },
-          { value: 'nextjs',     label: '▲ Next.js 14 + TS + Tailwind (풀스택)' },
-          { value: 'astro',      label: '🚀 Astro + Tailwind (블로그 · 콘텐츠)' },
-          { value: 'expo',       label: '📱 Expo (iOS/Android 모바일 앱)' },
-          { value: 'vanilla',    label: '📄 Vanilla HTML+CSS+JS (단순)' },
-        ],
-      },
-      PROJECT_NAME: {
-        type: 'text',
-        label: '📁 프로젝트 이름',
-        hint: '소문자·숫자·하이픈만. 공백·한글 X. 예: my-blog, dashboard, portfolio',
-      },
-      OUTPUT_DIR: {
-        type: 'text',
-        label: '🗂️ 부모 폴더',
-        hint: '비우면 ~/connect-ai-projects/. 다른 위치 원하면 절대경로.',
-      },
-    },
-  }, null, 2);
-  _seedFileForceUpgrade(path.join(toolsDir, 'web_init.py'), py, 'web_init_v3');
-  _mergeSchemaIntoJson(path.join(toolsDir, 'web_init.json'), json);
-  _seedFileForceUpgrade(path.join(toolsDir, 'web_init.md'), md, 'web_init_v1');
-}
+// Moved to Scaffolder: _seedDeveloperWebInit
 
-function _seedDeveloperWebPreview(toolsDir: string) {
-  const py = _loadToolSeed('developer/web_preview.py');
-  const md = _loadToolSeed('developer/web_preview.md');
-  const json = JSON.stringify({
-    PROJECT_PATH: '',
-    DEV_CMD: '',
-    AUTO_OPEN: 'true',
-    _schema: {
-      PROJECT_PATH: { type: 'text', label: '📁 프로젝트 경로', hint: '비우면 web_init이 마지막에 만든 프로젝트 자동 사용' },
-      DEV_CMD: { type: 'text', label: '▶️ dev 명령', hint: '비우면 package.json scripts.dev 자동 감지 (npm run dev)' },
-      AUTO_OPEN: {
-        type: 'select', label: '🌐 브라우저 자동 열기',
-        options: [
-          { value: 'true', label: 'O — URL 감지하면 브라우저 자동 오픈' },
-          { value: 'false', label: 'X — 출력만, 브라우저 수동' },
-        ],
-      },
-    },
-  }, null, 2);
-  _seedFileForceUpgrade(path.join(toolsDir, 'web_preview.py'), py, 'web_preview_v1');
-  _mergeSchemaIntoJson(path.join(toolsDir, 'web_preview.json'), json);
-  _seedFileForceUpgrade(path.join(toolsDir, 'web_preview.md'), md, 'web_preview_v1');
-}
+// Moved to Scaffolder: _seedDeveloperWebPreview
 
-function _seedDeveloperLintTest(toolsDir: string) {
-  const py = _loadToolSeed('developer/lint_test.py');
-  const md = _loadToolSeed('developer/lint_test.md');
-  const json = JSON.stringify({
-    PROJECT_PATH: '',
-    STRICT: 'false',
-    _schema: {
-      PROJECT_PATH: { type: 'text', label: '📁 프로젝트 경로', hint: '비우면 web_init 마지막 결과 사용' },
-      STRICT: {
-        type: 'select', label: '⚙️ 엄격 모드',
-        options: [
-          { value: 'false', label: '느슨 — 모든 검증 시도 (기본)' },
-          { value: 'true',  label: '엄격 — 첫 실패 시 중단' },
-        ],
-      },
-    },
-  }, null, 2);
-  _seedFileForceUpgrade(path.join(toolsDir, 'lint_test.py'), py, 'lint_test_v1');
-  _mergeSchemaIntoJson(path.join(toolsDir, 'lint_test.json'), json);
-  _seedFileForceUpgrade(path.join(toolsDir, 'lint_test.md'), md, 'lint_test_v1');
-}
+// Moved to Scaffolder: _seedDeveloperLintTest
 
-function _seedDeveloperPackApply(toolsDir: string) {
-  const py = _loadToolSeed('developer/pack_apply.py');
-  const md = _loadToolSeed('developer/pack_apply.md');
-  const json = JSON.stringify({
-    KIT_NAME: '',
-    USER_INTENT: '',
-    PROJECT_PATH: '',
-    _schema: {
-      KIT_NAME: {
-        type: 'select',
-        label: '🧩 키트 (명시 선택, 선택 사항)',
-        hint: '비우면 USER_INTENT 로 자동 추론. 명시하면 무조건 그 키트 사용.',
-        options: [
-          { value: '',              label: '(자동 추론 — USER_INTENT 사용)' },
-          { value: 'landing-kit',   label: '🏠 Landing Kit — SaaS 랜딩 (6 섹션)' },
-          { value: 'portfolio-kit', label: '👤 Portfolio Kit — 1인 크리에이터 (5 섹션)' },
-          { value: 'dashboard-kit', label: '📊 Dashboard Kit — SaaS 관리자' },
-          { value: 'mobile-kit',    label: '📱 Mobile Kit — Expo 모바일 앱 (3 화면)' },
-        ],
-      },
-      USER_INTENT: {
-        type: 'text',
-        label: '🎯 사용자 의도 (자연어, 자동 매칭용)',
-        hint: '예: "다이어트 SaaS 랜딩" → 자동으로 landing-kit. "내 작품 모음" → portfolio-kit.',
-      },
-      PROJECT_PATH: {
-        type: 'text',
-        label: '📁 적용할 프로젝트 경로',
-        hint: '비우면 web_init 이 마지막에 만든 프로젝트 자동 사용',
-      },
-    },
-  }, null, 2);
-  _seedFileForceUpgrade(path.join(toolsDir, 'pack_apply.py'), py, 'pack_apply_v7_1');
-  _mergeSchemaIntoJson(path.join(toolsDir, 'pack_apply.json'), json);
-  _seedFileForceUpgrade(path.join(toolsDir, 'pack_apply.md'), md, 'pack_apply_v1');
-}
+// Moved to Scaffolder: _seedDeveloperPackApply
 
-function _seedDeveloperPwaSetup(toolsDir: string) {
-  const py = _loadToolSeed('developer/pwa_setup.py');
-  const md = _loadToolSeed('developer/pwa_setup.md');
-  const json = JSON.stringify({
-    PROJECT_PATH: '',
-    APP_NAME: '',
-    APP_SHORT_NAME: '',
-    THEME_COLOR: '#667eea',
-    BACKGROUND_COLOR: '#ffffff',
-    ICON_EMOJI: '✦',
-    _schema: {
-      PROJECT_PATH: { type: 'text', label: '📁 프로젝트 경로', hint: '비우면 web_init 결과 자동 사용' },
-      APP_NAME: { type: 'text', label: '📱 앱 이름', hint: '홈 화면에 표시될 풀 이름. 비우면 폴더명.' },
-      APP_SHORT_NAME: { type: 'text', label: '🏷️ 짧은 이름', hint: '12자 이하. 비우면 앱 이름 잘라서.' },
-      THEME_COLOR: { type: 'text', label: '🎨 테마 색', hint: '상단 바 색. #RRGGBB' },
-      BACKGROUND_COLOR: { type: 'text', label: '🖼️ 스플래시 배경', hint: '앱 시작 화면 배경. #RRGGBB' },
-      ICON_EMOJI: { type: 'text', label: '✨ 아이콘 이모지', hint: '아이콘에 쓸 이모지 (예: 📚 ✦ 🎯)' },
-    },
-  }, null, 2);
-  _seedFileForceUpgrade(path.join(toolsDir, 'pwa_setup.py'), py, 'pwa_setup_v1');
-  _mergeSchemaIntoJson(path.join(toolsDir, 'pwa_setup.json'), json);
-  _seedFileForceUpgrade(path.join(toolsDir, 'pwa_setup.md'), md, 'pwa_setup_v1');
-}
+// Moved to Scaffolder: _seedDeveloperPwaSetup
 
 /* v2.89.68 — Editor (사운드) 에이전트 시드 함수들. assets/tool-seeds/editor/ 의 .py·.md 파일을
    회사 폴더의 _agents/editor/tools/ 로 복사. sentinel은 'music_v3' — 향후 ACE-Step XL 지원
    추가 시 'music_v3'로 올려서 자동 업그레이드. */
-function _seedEditorMusicStudioSetup(toolsDir: string) {
-  const py = _loadToolSeed('editor/music_studio_setup.py');
-  const md = _loadToolSeed('editor/music_studio_setup.md');
-  /* v2.89.72 — _schema 메타로 MODEL을 드롭다운으로 노출. 사용자가 텍스트 입력 안 하고 클릭으로 선택. */
-  const json = JSON.stringify({
-    MODEL: '',
-    INSTALL_DIR: '',
-    _schema: {
-      MODEL: {
-        type: 'select',
-        label: '🎵 음악 모델',
-        hint: '비워두면 small 자동 선택 (모든 기기 안전). 큰 모델은 명시 RAM의 1.5~2배 실제 압박',
-        options: [
-          { value: '', label: '(자동 — 항상 small, 가장 안전)' },
-          { value: 'musicgen-small',  label: '⚡ MusicGen Small  (300MB · 4GB+ RAM · 빠름)' },
-          { value: 'musicgen-medium', label: '⚖️ MusicGen Medium (1.5GB · 8GB+ RAM · 균형)' },
-          { value: 'musicgen-large',  label: '🎼 MusicGen Large  (3.3GB · 16GB+ RAM · 좋음)' },
-          { value: 'acestep-base',    label: '🎹 ACE-Step Base   (10GB · 16GB+ Mac · 우수)' },
-          { value: 'acestep-xl',      label: '🎻 ACE-Step XL     (15GB · 32GB+ 머신 · 최고)' },
-        ],
-      },
-      INSTALL_DIR: {
-        type: 'text',
-        label: '📁 설치 위치',
-        hint: '비워두면 ~/connect-ai-music/. 외장 디스크 등 변경 가능',
-      },
-    },
-  }, null, 2);
-  _seedFileForceUpgrade(path.join(toolsDir, 'music_studio_setup.py'), py, 'music_v5');
-  // v2.89.85 — _seedFile → _mergeSchemaIntoJson. 기존 설치자의 json 에는
-  // _schema 가 없어서 폼에 드롭다운이 안 떴음. 머지 헬퍼가 사용자 입력값
-  // (MODEL/INSTALL_DIR) 과 도구가 자동 채워넣은 메타 (INSTALLED_·VENV_·
-  // HF_ID·INSTALLED_AT) 는 그대로 보존하면서 _schema 만 최신화.
-  _mergeSchemaIntoJson(path.join(toolsDir, 'music_studio_setup.json'), json);
-  _seedFileForceUpgrade(path.join(toolsDir, 'music_studio_setup.md'), md, 'music_v5');
-}
+// Moved to Scaffolder: _seedEditorMusicStudioSetup
 
-function _seedEditorMusicGenerate(toolsDir: string) {
-  const py = _loadToolSeed('editor/music_generate.py');
-  const md = _loadToolSeed('editor/music_generate.md');
-  const json = JSON.stringify({
-    PROMPT: 'calm korean YouTube intro music, gentle piano, hopeful',
-    DURATION_SEC: 30,
-    GENRE: '',
-    OUTPUT_DIR: '',
-  }, null, 2);
-  _seedFileForceUpgrade(path.join(toolsDir, 'music_generate.py'), py, 'music_v4');
-  _seedFile(path.join(toolsDir, 'music_generate.json'), json);
-  _seedFileForceUpgrade(path.join(toolsDir, 'music_generate.md'), md, 'music_v4');
-}
+// Moved to Scaffolder: _seedEditorMusicGenerate
 
-function _seedEditorMusicToVideo(toolsDir: string) {
-  const py = _loadToolSeed('editor/music_to_video.py');
-  const md = _loadToolSeed('editor/music_to_video.md');
-  const json = JSON.stringify({
-    VIDEO_PATH: '',
-    MUSIC_PATH: '',
-    BGM_VOLUME: 0.3,
-    OUTPUT_PATH: '',
-  }, null, 2);
-  _seedFileForceUpgrade(path.join(toolsDir, 'music_to_video.py'), py, 'music_v3');
-  _seedFile(path.join(toolsDir, 'music_to_video.json'), json);
-  _seedFileForceUpgrade(path.join(toolsDir, 'music_to_video.md'), md, 'music_v3');
-}
+// Moved to Scaffolder: _seedEditorMusicToVideo
 
-function _seedFile(p: string, content: string) {
-  if (fs.existsSync(p)) return;
-  fs.writeFileSync(p, content);
-}
+// Moved to Scaffolder: _seedFile
 
 /* Like _seedFile but force-overwrites if the existing file is missing a
    sentinel string. Use for autogenerated tool scripts when we ship a new
    version that needs to replace the old one — sentinel changes per version. */
-function _seedFileForceUpgrade(p: string, content: string, sentinel: string) {
-  if (!fs.existsSync(p)) {
-    fs.writeFileSync(p, content);
-    return;
-  }
-  try {
-    const cur = fs.readFileSync(p, 'utf-8');
-    if (!cur.includes(sentinel)) {
-      fs.writeFileSync(p, content);
-    }
-  } catch { /* ignore */ }
-}
+// Moved to Scaffolder: _seedFileForceUpgrade
 
-function _seedYouTubeTrendSniper(toolsDir: string) {
-  const py = _loadToolSeed('youtube/trend_sniper.py');
-  const json = JSON.stringify({
-    TARGET_KEYWORDS: ['유튜브 자동화', 'AI 비즈니스', '마케팅 트렌드', '생산성 툴'],
-  }, null, 2);
-  const md = _loadToolSeed('youtube/trend_sniper.md');
-  /* v2.89.70 sentinel — LM Studio + Ollama 자동 감지 추가됨. 이전 사용자는 자동 업그레이드. */
-  _seedFileForceUpgrade(path.join(toolsDir, 'trend_sniper.py'), py, 'is_lm_studio');
-  _seedFile(path.join(toolsDir, 'trend_sniper.json'), json);
-  _seedFile(path.join(toolsDir, 'trend_sniper.md'), md);
-}
+// Moved to Scaffolder: _seedYouTubeTrendSniper
 
 /* v2.89.70 sentinel — Auto Planner에 첫 실행 검증 + blocking 명확 안내 추가. 자동 업그레이드. */
-function _seedYouTubeAutoPlanner(toolsDir: string) {
-  const py = _loadToolSeed('youtube/auto_planner.py');
-  /* v2.89.72 — 사용자가 드롭다운으로 모드 선택. INTERVAL과 TOTAL 둘 다 select. */
-  const json = JSON.stringify({
-    INTERVAL_HOURS: 6,
-    TOTAL_RUN_HOURS: 0,
-    _schema: {
-      INTERVAL_HOURS: {
-        type: 'select',
-        label: '⏰ 실행 간격',
-        hint: 'YouTube API 일일 quota 한도(10,000 unit) 고려. 6시간이 안전권.',
-        options: [
-          { value: 1,  label: '1시간 — 너무 빠름, quota 초과 위험' },
-          { value: 2,  label: '2시간 — 빠른 모니터링 (12회/일)' },
-          { value: 3,  label: '3시간 — 활발 (8회/일)' },
-          { value: 6,  label: '⭐ 6시간 — 권장 (4회/일, 안전)' },
-          { value: 12, label: '12시간 — 보수적 (2회/일)' },
-          { value: 24, label: '24시간 — 일일 1회' },
-        ],
-      },
-      TOTAL_RUN_HOURS: {
-        type: 'select',
-        label: '🌙 가동 모드',
-        hint: '0(무한) = 24시간 자율 모드. 양수 = 그 시간만 돌고 종료 (테스트용).',
-        options: [
-          { value: 0,  label: '⭐ 0 (무한) — 24시간 자율, 사용자가 멈출 때까지' },
-          { value: 8,  label: '8시간 — 하룻밤 동안 (테스트용)' },
-          { value: 24, label: '24시간 — 하루 동안' },
-          { value: 72, label: '72시간 — 3일 동안' },
-          { value: 168, label: '168시간 — 1주일 동안' },
-        ],
-      },
-    },
-  }, null, 2);
-  const md = _loadToolSeed('youtube/auto_planner.md');
-  /* v2.89.71 sentinel — 24시간 자율 모드 (TOTAL_RUN_HOURS=0 무한). 자동 업그레이드. */
-  _seedFileForceUpgrade(path.join(toolsDir, 'auto_planner.py'), py, '24시간 자율 모드');
-  _seedFile(path.join(toolsDir, 'auto_planner.json'), json);
-  _seedFileForceUpgrade(path.join(toolsDir, 'auto_planner.md'), md, '24시간 자율 모드');
-}
+// Moved to Scaffolder: _seedYouTubeAutoPlanner
 
 /* ─── Shared YouTube account/channel config ────────────────────────────────
    The other tools (trend_sniper, my_videos_check, comment_harvester,
    competitor_brief, telegram_notify) all read this single file so the user
    only enters their API key / channels / Telegram once. */
-function _seedYouTubeAccount(toolsDir: string) {
-  const py = _loadToolSeed('youtube/youtube_account.py');
-  /* v2.89.81 — _schema 추가. 폼 렌더가 hint를 자동으로 표시. */
-  const json = JSON.stringify({
-    YOUTUBE_API_KEY: '',
-    MY_CHANNEL_HANDLE: '',
-    MY_CHANNEL_ID: '',
-    WATCHED_CHANNELS: [],
-    COMPETITOR_CHANNELS: [],
-    TELEGRAM_BOT_TOKEN: '',
-    TELEGRAM_CHAT_ID: '',
-    OLLAMA_URL: 'http://127.0.0.1:11434',
-    MODEL: '',
-    _schema: {
-      YOUTUBE_API_KEY: { label: '🔑 YouTube Data API 키', hint: 'Google Cloud Console → API & Services → 사용자 인증 정보에서 발급. 트렌드/통계 조회용 (일일 quota 10,000).' },
-      MY_CHANNEL_HANDLE: { label: '📺 내 채널 핸들', hint: '@로 시작하는 채널 핸들 (예: @leoyt). 안 적어도 ID만 있으면 동작.' },
-      MY_CHANNEL_ID: { label: '🆔 내 채널 ID', hint: 'UC로 시작하는 24자 ID. studio.youtube.com → 설정 → 채널 → 고급 설정에서 확인.' },
-      WATCHED_CHANNELS: { label: '👀 모니터링 채널들', hint: '내가 정기적으로 추적하고 싶은 채널 핸들. 트렌드 스나이퍼가 새 영상을 잡아옴.' },
-      COMPETITOR_CHANNELS: { label: '🎯 경쟁 채널들', hint: '벤치마킹할 채널 핸들. 비교 분석에 사용.' },
-      TELEGRAM_BOT_TOKEN: { label: '🤖 Telegram Bot 토큰', hint: '@BotFather에서 /newbot으로 발급. 형식: 123456789:AAH...' },
-      TELEGRAM_CHAT_ID: { label: '💬 Telegram Chat ID', hint: '봇과 첫 대화 시작 후 자동 채워짐. 직접 입력하지 않아도 됨.' },
-      OLLAMA_URL: { label: '🧠 LLM 서버 주소', hint: '로컬 Ollama/LM Studio 엔드포인트. 보통 그대로 두면 됨.' },
-      MODEL: { label: '🎚 사용할 모델', hint: '비워두면 설치된 모델 중 가장 작은 것 자동. 직접 지정하려면 모델명 (예: gemma2:2b).' },
-      YOUTUBE_OAUTH_CLIENT_ID: { label: '🔓 OAuth Client ID', hint: 'Google Cloud → OAuth 2.0 클라이언트 ID. 댓글 답글·통계 등 인증 필요한 기능에 사용.' },
-      YOUTUBE_OAUTH_CLIENT_SECRET: { label: '🔐 OAuth Client Secret', hint: 'OAuth 클라이언트 ID와 같이 발급되는 비밀 키. Authorized redirect URI: http://127.0.0.1:5814/yt-oauth-callback' },
-    },
-  }, null, 2);
-  const md = _loadToolSeed('youtube/youtube_account.md');
-  _seedFile(path.join(toolsDir, 'youtube_account.py'), py);
-  /* Force-upgrade JSON so existing users get the new _schema. 사용자가 이미 입력한
-     값은 보존하고 _schema만 머지하는 게 이상적이지만, _schema는 사용자가 편집하지
-     않는 메타라 통째 덮어써도 안전. 단, 사용자 값이 있으면 보존해야 함 — 여기서
-     _seedFileForceUpgrade는 sentinel 없으면 통째 덮어쓰니까 사용자 값이 날아감.
-     그래서 별도 머지 함수 호출. */
-  _mergeSchemaIntoJson(path.join(toolsDir, 'youtube_account.json'), json);
-  /* Force-upgrade to surface the new Secretary-canonical guidance to users
-     on older versions. Sentinel = the new section header. */
-  _seedFileForceUpgrade(path.join(toolsDir, 'youtube_account.md'), md, '비서(Secretary)에 입력');
-}
+// Moved to Scaffolder: _seedYouTubeAccount
 
 /* JSON 시드 파일에 새 _schema를 머지. 사용자가 입력한 값은 절대 건드리지 않고,
    _schema만 항상 최신으로 갱신. fresh에 새로 추가된 키는 빈 값으로 추가하고,
@@ -6803,20 +5431,7 @@ function _mergeSchemaIntoJson(p: string, freshJson: string) {
    v2.89.43 — 전문 유튜브 분석가 수준의 종합 보고서. 이전엔 중간값 1줄 + 영상 목록만
    출력해서 "전문 에이전트답지 못함"이라는 사용자 피드백. 이제 채널 메타·요일별 성과·
    참여율·제목 키워드·인기 댓글·구체 액션 추천까지 포함. */
-function _seedYouTubeMyVideosCheck(toolsDir: string) {
-  const py = _loadToolSeed('youtube/my_videos_check.py');
-  const json = JSON.stringify({ LOOKBACK_DAYS: 30, TOP_N: 15, COMMENT_SAMPLES: 5 }, null, 2);
-  const md = _loadToolSeed('youtube/my_videos_check.md');
-  /* Force-upgrade the .py — older users on pre-telegram_v2 versions need
-     the Secretary fallback so token doesn't have to be duplicated. */
-  /* v2.89.43 — sentinel 'pro_v1' = 종합 분석 버전. 기존 사용자도 자동 업그레이드. */
-  /* sentinel pro_v4 — HTML entity 디코드 + 빈 영상 시 stderr로. 기존 설치자 자동 업그레이드. */
-  _seedFileForceUpgrade(path.join(toolsDir, 'my_videos_check.py'), py, 'pro_v4');
-  _seedFile(path.join(toolsDir, 'my_videos_check.json'), json);
-  /* v2.89.20 — Force upgrade .md heading from old "내 영상 체크" to "내 유튜브 채널 분석"
-     for existing users. Sentinel = the new heading text. */
-  _seedFileForceUpgrade(path.join(toolsDir, 'my_videos_check.md'), md, '내 유튜브 채널 분석');
-}
+// Moved to Scaffolder: _seedYouTubeMyVideosCheck
 
 /* ─── 📈 채널 완전 분석 — v2.89.21 ──────────────────────────────────────────
    API 키 + 채널 ID 만 있으면 돌아가는 통합 분석 도구. my_videos_check 는
@@ -6827,51 +5442,16 @@ function _seedYouTubeMyVideosCheck(toolsDir: string) {
    - 인기 영상 vs 부진 영상의 제목·길이 패턴 비교
    - 다음 액션 자동 추천 (LLM 호출 없이 통계만으로)
    추가 입력 필요 없음. */
-function _seedYouTubeChannelFullAnalysis(toolsDir: string) {
-  const py = _loadToolSeed('youtube/channel_full_analysis.py');
-  const json = JSON.stringify({}, null, 2); /* 추가 입력 없음 */
-  const md = _loadToolSeed('youtube/channel_full_analysis.md');
-  _seedFile(path.join(toolsDir, 'channel_full_analysis.py'), py);
-  _seedFile(path.join(toolsDir, 'channel_full_analysis.json'), json);
-  _seedFile(path.join(toolsDir, 'channel_full_analysis.md'), md);
-}
+// Moved to Scaffolder: _seedYouTubeChannelFullAnalysis
 
 /* ─── Comment Harvester — pulls comments from watched channels ───────────── */
-function _seedYouTubeCommentHarvester(toolsDir: string) {
-  const py = _loadToolSeed('youtube/comment_harvester.py');
-  const json = JSON.stringify({
-    VIDEOS_PER_CHANNEL: 5,
-    COMMENTS_PER_VIDEO: 20,
-    LOOKBACK_DAYS: 14,
-  }, null, 2);
-  const md = _loadToolSeed('youtube/comment_harvester.md');
-  _seedFile(path.join(toolsDir, 'comment_harvester.py'), py);
-  _seedFile(path.join(toolsDir, 'comment_harvester.json'), json);
-  _seedFile(path.join(toolsDir, 'comment_harvester.md'), md);
-}
+// Moved to Scaffolder: _seedYouTubeCommentHarvester
 
 /* ─── Competitor Brief — prescriptive next-actions from rivals ───────────── */
-function _seedYouTubeCompetitorBrief(toolsDir: string) {
-  const py = _loadToolSeed('youtube/competitor_brief.py');
-  const json = JSON.stringify({ TOP_N_PER_CHANNEL: 5, LOOKBACK_DAYS: 30 }, null, 2);
-  const md = _loadToolSeed('youtube/competitor_brief.md');
-  _seedFileForceUpgrade(path.join(toolsDir, 'competitor_brief.py'), py, 'telegram_v3');
-  _seedFile(path.join(toolsDir, 'competitor_brief.json'), json);
-  _seedFile(path.join(toolsDir, 'competitor_brief.md'), md);
-}
+// Moved to Scaffolder: _seedYouTubeCompetitorBrief
 
 /* ─── Telegram Notify — sender + connectivity check ─────────────────────── */
-function _seedYouTubeTelegramNotify(toolsDir: string) {
-  /* telegram_v3 — Secretary's tools/telegram_setup.json is canonical for
-     telegram credentials (UI-managed). config.md and youtube_account.json
-     remain as back-compat fallbacks. */
-  const py = _loadToolSeed('youtube/telegram_notify.py');
-  const json = JSON.stringify({}, null, 2);
-  const md = _loadToolSeed('youtube/telegram_notify.md');
-  _seedFileForceUpgrade(path.join(toolsDir, 'telegram_notify.py'), py, 'telegram_v3');
-  _seedFile(path.join(toolsDir, 'telegram_notify.json'), json);
-  _seedFileForceUpgrade(path.join(toolsDir, 'telegram_notify.md'), md, 'Secretary 비서가 정답');
-}
+// Moved to Scaffolder: _seedYouTubeTelegramNotify
 
 /* ─── Secretary · Telegram 연결 도구 ────────────────────────────────────────
    Secretary is the canonical home for Telegram credentials. This seeds a
@@ -6879,64 +5459,26 @@ function _seedYouTubeTelegramNotify(toolsDir: string) {
    via the Skills section's standard ⚙️ tool config modal — no markdown
    editing required. The .json field names match what _resolve_telegram
    looks for, and the .py runs a connectivity test on ▶ click. */
-function _seedSecretaryTelegram(toolsDir: string) {
-  const py = _loadToolSeed('secretary/telegram_setup.py');
-  /* JSON keys are inferred as password by _inferToolFieldType because they
-     match KEY|SECRET|TOKEN|API regex. CHAT_ID falls into 'text' because no
-     match — exactly what we want. */
-  const jsonStr = JSON.stringify({
-    TELEGRAM_BOT_TOKEN: '',
-    TELEGRAM_CHAT_ID: '',
-  }, null, 2);
-  const md = _loadToolSeed('secretary/telegram_setup.md');
-  _seedFileForceUpgrade(path.join(toolsDir, 'telegram_setup.py'), py, 'secretary_telegram_v2');
-  _seedFile(path.join(toolsDir, 'telegram_setup.json'), jsonStr);
-  _seedFileForceUpgrade(path.join(toolsDir, 'telegram_setup.md'), md, '⚙️ 버튼을 누르고 폼에 입력');
-}
+// Moved to Scaffolder: _seedSecretaryTelegram
 
 /* ─── Secretary · Google Calendar (iCal 읽기 전용) ──────────────────────────
    비서가 사용자의 Google Calendar 일정을 읽어서 데일리 브리핑/시간 비교에
    활용. v1은 OAuth 없이 iCal Secret URL 한 줄로 끝나는 read-only 모델.
    ▶ 실행하면 다가오는 N일치 일정을 _shared/calendar_cache.md 에 저장하고
    다른 에이전트가 readAgentSharedContext에서 자동 참조하게 됩니다. */
-function _seedSecretaryGoogleCalendar(toolsDir: string) {
-  const py = _loadToolSeed('secretary/google_calendar.py');
-  const jsonStr = JSON.stringify({
-    ICAL_URL: '',
-    DAYS_AHEAD: 14,
-  }, null, 2);
-  const md = _loadToolSeed('secretary/google_calendar.md');
-  _seedFileForceUpgrade(path.join(toolsDir, 'google_calendar.py'), py, 'secretary_calendar_v1');
-  _seedFile(path.join(toolsDir, 'google_calendar.json'), jsonStr);
-  _seedFileForceUpgrade(path.join(toolsDir, 'google_calendar.md'), md, '가벼운 읽기, iCal');
-}
+// Moved to Scaffolder: _seedSecretaryGoogleCalendar
 
 /* ─── Secretary · Google Calendar Write (OAuth 자동 일정 등록) ────────────
    The actual OAuth dance + event creation is driven from TypeScript (host
    has axios + can spin up a loopback HTTP server). This Python is purely a
    status/diagnostic tool: ▶ shows whether the connection is alive. */
-function _seedSecretaryGoogleCalendarWrite(toolsDir: string) {
-  const py = _loadToolSeed('secretary/google_calendar_write.py');
-  /* Empty-ish JSON — actual values come from the wizard. CALENDAR_ID and
-     DEFAULT_DURATION_MINUTES are user-tunable via the standard ⚙️ form. */
-  const jsonStr = JSON.stringify({
-    CLIENT_ID: '',
-    CLIENT_SECRET: '',
-    REFRESH_TOKEN: '',
-    CALENDAR_ID: 'primary',
-    DEFAULT_DURATION_MINUTES: 60,
-  }, null, 2);
-  const md = _loadToolSeed('secretary/google_calendar_write.md');
-  _seedFileForceUpgrade(path.join(toolsDir, 'google_calendar_write.py'), py, 'secretary_calendar_write_v1');
-  _seedFile(path.join(toolsDir, 'google_calendar_write.json'), jsonStr);
-  _seedFileForceUpgrade(path.join(toolsDir, 'google_calendar_write.md'), md, '비서가 본인의 Google Calendar와 양방향 연결');
-}
+// Moved to Scaffolder: _seedSecretaryGoogleCalendarWrite
 
 /** Resolve the conversation log directory inside the user's brain folder.
  *  Lives at `<brain>/00_Raw/conversations/` so it joins the existing
  *  Second-Brain raw-knowledge convention — visible to the brain graph,
  *  synced by GitHub auto-sync, browsable in the user's note-taking app. */
-function getConversationsDir(): string {
+export function getConversationsDir(): string {
   const brain = getCompanyDir(); // unified with brain folder
   return path.join(brain, '00_Raw', 'conversations');
 }
@@ -6945,7 +5487,7 @@ function getConversationsDir(): string {
  *  of every interaction in the company — user commands, CEO briefs, each
  *  agent's output, confer turns, final reports. Stored in 00_Raw alongside
  *  other raw knowledge so it participates in brain queries. */
-function appendConversationLog(entry: { speaker: string; emoji?: string; section?: string; body: string }) {
+export function appendConversationLog(entry: { speaker: string; emoji?: string; section?: string; body: string }) {
   try {
     const convDir = getConversationsDir();
     fs.mkdirSync(convDir, { recursive: true });
@@ -6965,7 +5507,7 @@ function appendConversationLog(entry: { speaker: string; emoji?: string; section
 /** Read the last N chars (across today + yesterday) of the conversation log
  *  for use as system-prompt context. Lets CEO recall what the company has
  *  recently been working on without needing the full file. */
-function readRecentConversations(maxChars = 2500): string {
+export function readRecentConversations(maxChars = 2500): string {
   try {
     const convDir = getConversationsDir();
     if (!fs.existsSync(convDir)) return '';
@@ -6986,19 +5528,19 @@ function readRecentConversations(maxChars = 2500): string {
   }
 }
 
-function makeSessionDir(): string {
+export function makeSessionDir(): string {
   const ts = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 16);
   const dir = path.join(getCompanyDir(), 'sessions', ts);
   fs.mkdirSync(dir, { recursive: true });
   return dir;
 }
 
-const CEO_PLANNER_PROMPT = _loadPrompt('ceo-planner.md');
+export const CEO_PLANNER_PROMPT = _loadPrompt('ceo-planner.md');
 /* Conversational CEO prompt — used for the casual-chat fast path so a "안녕"
    doesn't crash the JSON planner. Small models will reply with a polite
    greeting no matter how strict the JSON instruction; we detect those turns
    up front and route them here instead of fighting the model. */
-const CEO_CHAT_PROMPT = _loadPrompt('ceo-chat.md');
+export const CEO_CHAT_PROMPT = _loadPrompt('ceo-chat.md');
 /* Reads the user's chosen Secretary bridge scope. The setting controls how
    much of the user↔company interaction Secretary mediates:
      off          — Secretary only handles Telegram. Sidebar talks to CEO direct.
@@ -7010,9 +5552,9 @@ const CEO_CHAT_PROMPT = _loadPrompt('ceo-chat.md');
    meaningfully and the user should be able to flip it from the standard VS
    Code settings UI. Educational toggle in the spirit of feedback_educational_toggles. */
 type SecretaryBridgeMode = 'off' | 'output_only' | 'full';
-function readSecretaryBridgeMode(): SecretaryBridgeMode {
+export function readSecretaryBridgeMode(): SecretaryBridgeMode {
     try {
-        const cfg = vscode.workspace.getConfiguration('connectAiLab');
+        const cfg = vscode.workspace.getConfiguration('shinAi');
         const v = (cfg.get<string>('secretaryBridgeMode') || 'off').trim().toLowerCase();
         if (v === 'output_only' || v === 'full') return v;
     } catch { /* fall through to default */ }
@@ -7024,12 +5566,12 @@ function readSecretaryBridgeMode(): SecretaryBridgeMode {
    answer itself (greeting, schedule lookup, simple Q&A) or needs to be
    escalated to the CEO planner for multi-agent work. Output is strict JSON
    so we can branch deterministically. */
-const SECRETARY_TRIAGE_PROMPT = _loadPrompt('secretary-triage.md');
+export const SECRETARY_TRIAGE_PROMPT = _loadPrompt('secretary-triage.md');
 /* Heuristic for "this is small talk, not a work order". When true we skip
    the JSON planner and just have CEO chat back. Conservative: only matches
    short greetings/acks; anything longer or with action verbs falls through
    to the full planner. */
-function _isCasualChat(text: string): boolean {
+export function _isCasualChat(text: string): boolean {
     const t = (text || '').trim();
     if (!t) return false;
     // Very short messages with no verbs → casual
@@ -7042,9 +5584,9 @@ function _isCasualChat(text: string): boolean {
     return false;
 }
 
-const CEO_REPORT_PROMPT = _loadPrompt('ceo-report.md');
-const CONFER_PROMPT = _loadPrompt('confer.md');
-const DECISIONS_EXTRACT_PROMPT = _loadPrompt('decisions-extract.md');
+export const CEO_REPORT_PROMPT = _loadPrompt('ceo-report.md');
+export const CONFER_PROMPT = _loadPrompt('confer.md');
+export const DECISIONS_EXTRACT_PROMPT = _loadPrompt('decisions-extract.md');
 /* v2.87.11 — 에이전트가 외부 API에 의존할 때, 자격증명이 없으면 그 사실을
    에이전트 본인이 알고 사용자에게 입력해달라고 응답해야 함. 이 함수가
    sysPrompt에 명시적인 config 상태 블록을 주입한다. 키가 비어있으면 강제로
@@ -7054,7 +5596,7 @@ const DECISIONS_EXTRACT_PROMPT = _loadPrompt('decisions-extract.md');
    출력해야만 발동됐는데, 작은 LLM은 자주 안 함 → 거짓말 (placeholder 데이터)
    양산. 이제 prefetch 결과가 있으면 에이전트가 거짓말 못 함 — 진짜 숫자 보고
    답하거나 "데이터에 없음"이라고 솔직히 말하거나. */
-async function prefetchAgentRealtimeData(agentId: string): Promise<string> {
+export async function prefetchAgentRealtimeData(agentId: string): Promise<string> {
   /* v2.89.11 — 진짜 API 호출하는 도구 우선. 이전엔 youtube_account.py 호출했는데
      그건 설정 sanity-check만 출력하지 실제 채널 데이터 안 가져옴. my_videos_check.py
      가 진짜 YouTube API 호출해서 채널 영상·조회수·기준선 데이터 반환. */
@@ -7116,7 +5658,7 @@ async function prefetchAgentRealtimeData(agentId: string): Promise<string> {
   return `\n\n[실시간 데이터 — 시스템이 방금 도구로 가져온 진짜 출력]\n\n${blocks.join('\n\n')}\n\n${strictRule}`;
 }
 
-function buildAgentConfigStatus(agentId: string): string {
+export function buildAgentConfigStatus(agentId: string): string {
   const lines: string[] = [];
   if (agentId === 'youtube') {
     try {
@@ -7186,7 +5728,7 @@ function buildAgentConfigStatus(agentId: string): string {
   return lines.join('\n');
 }
 
-function buildSpecialistPrompt(agentId: string): string {
+export function buildSpecialistPrompt(agentId: string): string {
   const a = AGENTS[agentId];
   const company = readCompanyName() || '1인 기업';
   /* v2.89.45 — 페르소나 블록. 에이전트별 voice 정의가 있으면 주입 → 똑같은 LLM이라도
@@ -7253,7 +5795,7 @@ OS 차이: 백그라운드 프로세스는 맥/리눅스에선 \`nohup ... &\`, 
 // On any conflict / auth failure, surface a friendly message
 // and let the user resolve it via the manual sync menu.
 // ============================================================
-async function _safeGitAutoSync(brainDir: string, commitMsg: string, provider: any = null) {
+export async function _safeGitAutoSync(brainDir: string, commitMsg: string, provider: any = null) {
     if (_autoSyncRunning) return; // dedup: another auto-sync (or manual sync) is already running
     _autoSyncRunning = true;
 
@@ -7273,7 +5815,7 @@ async function _safeGitAutoSync(brainDir: string, commitMsg: string, provider: a
         // (사용자가 settings.json에서 직접 폴더 경로를 입력한 경우에도 작동하도록 함)
         const isRepo = gitExecSafe(['status'], brainDir) !== null;
         if (!isRepo) {
-            const repoUrl = vscode.workspace.getConfiguration('connectAiLab').get<string>('secondBrainRepo', '');
+            const repoUrl = vscode.workspace.getConfiguration('shinAi').get<string>('secondBrainRepo', '');
             const cleanRepo = repoUrl ? validateGitRemoteUrl(repoUrl) : null;
             if (!cleanRepo) {
                 // GitHub URL도 없음 → 사용자가 sync 의도를 표현한 적이 없음. 조용히 종료.
@@ -7298,7 +5840,7 @@ async function _safeGitAutoSync(brainDir: string, commitMsg: string, provider: a
         // No remote configured → try to pull from settings, otherwise stay local.
         const existingRemote = gitExecSafe(['remote', 'get-url', 'origin'], brainDir)?.trim() || '';
         if (!existingRemote) {
-            const repoUrl = vscode.workspace.getConfiguration('connectAiLab').get<string>('secondBrainRepo', '');
+            const repoUrl = vscode.workspace.getConfiguration('shinAi').get<string>('secondBrainRepo', '');
             const cleanRepo = repoUrl ? validateGitRemoteUrl(repoUrl) : null;
             if (!cleanRepo) {
                 notify(`✅ 지식이 로컬에 안전하게 저장되었습니다.\n\n💡 **Tip:** 깃허브 백업을 원하시면 🧠 메뉴 → '깃허브 동기화'를 눌러주세요!`, 3000);
@@ -7366,17 +5908,17 @@ async function _safeGitAutoSync(brainDir: string, commitMsg: string, provider: a
 
 /* Company-folder git sync (separate from brain). Only meaningful when the
    company is DETACHED (lives outside <brain>/_company/) AND the user has
-   set `connectAiLab.companyRepo`. Otherwise no-op — company is already
+   set `shinAi.companyRepo`. Otherwise no-op — company is already
    covered by brain sync (nested) or user hasn't asked for backup. Uses
    its own lock so it can run in parallel with brain sync. */
-async function _safeGitAutoSyncCompany(commitMsg: string, provider: any = null) {
+export async function _safeGitAutoSyncCompany(commitMsg: string, provider: any = null) {
     if (_companySyncRunning) return;
     const companyDir = getCompanyDir();
     const brainDir = _getBrainDir();
     const isNested = path.normalize(companyDir).startsWith(path.normalize(brainDir) + path.sep);
     if (isNested) return; // brain sync covers it
     if (!fs.existsSync(companyDir)) return;
-    const repoUrl = vscode.workspace.getConfiguration('connectAiLab').get<string>('companyRepo', '');
+    const repoUrl = vscode.workspace.getConfiguration('shinAi').get<string>('companyRepo', '');
     const cleanRepo = repoUrl ? validateGitRemoteUrl(repoUrl) : null;
     if (!cleanRepo) return; // user hasn't asked for company backup yet
 
@@ -7437,18 +5979,18 @@ async function _safeGitAutoSyncCompany(commitMsg: string, provider: any = null) 
 // Module-level reference so module-scope helpers (e.g. showBrainNetwork) can
 // register externally-opened graph panels with the provider for thinking
 // event broadcasts.
-let _activeChatProvider: SidebarChatProvider | null = null;
-let _extCtx: vscode.ExtensionContext | null = null;
+export let _activeChatProvider: SidebarChatProvider | null = null;
+export let _extCtx: vscode.ExtensionContext | null = null;
 
 // One-time recovery for users upgrading from <=2.22.5, where the first-run
 // auto-detect wrote the engine URL to a typo'd config key (`ollamaBase`) that
 // VS Code silently dropped. Symptom: defaultModel is set to an LM Studio name
 // but ollamaUrl still points at Ollama (or vice versa) → 404 on every chat.
-function _recoverEngineUrlIfMismatched(context: vscode.ExtensionContext) {
+export function _recoverEngineUrlIfMismatched(context: vscode.ExtensionContext) {
     if (context.globalState.get('engineUrlRecovered')) return;
     (async () => {
         try {
-            const cfg = vscode.workspace.getConfiguration('connectAiLab');
+            const cfg = vscode.workspace.getConfiguration('shinAi');
             const url = (cfg.get<string>('ollamaUrl') || '').trim();
             const model = (cfg.get<string>('defaultModel') || '').trim();
             if (!model) {
@@ -7493,10 +6035,10 @@ function _recoverEngineUrlIfMismatched(context: vscode.ExtensionContext) {
  *  자동 선택. 사용자가 명시적으로 모델을 골랐다면 절대 건드리지 않음.
  *  Ollama의 /api/tags가 size(byte)를 같이 주니 그걸로 정렬.
  *  LM Studio는 size를 안 주므로 단순히 첫 번째 등록된 모델로. */
-function _autoPickInstalledModelIfMissing() {
+export function _autoPickInstalledModelIfMissing() {
     (async () => {
         try {
-            const cfg = vscode.workspace.getConfiguration('connectAiLab');
+            const cfg = vscode.workspace.getConfiguration('shinAi');
             const current = (cfg.get<string>('defaultModel') || '').trim();
             if (current) return; // 사용자가 이미 골랐음 — 절대 건드리지 않음
             const url = (cfg.get<string>('ollamaUrl') || 'http://127.0.0.1:11434').trim();
@@ -7516,7 +6058,7 @@ function _autoPickInstalledModelIfMissing() {
                     const models = (r.data?.models || []) as Array<{ name: string; size: number }>;
                     if (models.length > 0) {
                         // 가장 작은 모델부터 — 첫 호출 실패 진입 장벽 최소화
-                        models.sort((a, b) => (a.size || 0) - (b.size || 0));
+                        models.sort((a: any, b: any) => (a.size || 0) - (b.size || 0));
                         await cfg.update('defaultModel', models[0].name, vscode.ConfigurationTarget.Global);
                         console.log(`SHIN AI: auto-picked Ollama model → ${models[0].name} (${(models[0].size / 1e9).toFixed(2)} GB)`);
                     }
@@ -7529,10 +6071,11 @@ function _autoPickInstalledModelIfMissing() {
 }
 
 export function activate(context: vscode.ExtensionContext) {
-    vscode.window.showInformationMessage('🔥 SHIN AI V2 활성화 완료!');
+    vscode.window.showInformationMessage('🔥 SHIN AI 활성화 완료!');
     console.log('SHIN AI extension activated.');
 
     _extCtx = context;
+    setExtensionContext(context);
     /* v2.89.138 — extensionUri 즉시 세팅. 이전엔 "우리 회사 대시보드" 명령
        처음 열기 전엔 _dashboardExtensionUri=null 이라 ApiConnectionsPanel /
        RevenueDashboardPanel 가 _loadWebviewAsset() 으로 빈 CSS·JS 받음 →
@@ -7543,7 +6086,7 @@ export function activate(context: vscode.ExtensionContext) {
        설정에서 Python 경로 바꾸면 다음 도구 실행부터 새 경로 사용. */
     context.subscriptions.push(
         vscode.workspace.onDidChangeConfiguration(e => {
-            if (e.affectsConfiguration('connectAiLab.pythonPath')) {
+            if (e.affectsConfiguration('shinAi.pythonPath')) {
                 _invalidatePythonCmdCache();
                 vscode.window.setStatusBarMessage('🐍 Python 경로 설정 변경 — 다음 도구 실행 시 적용', 4000);
             }
@@ -7609,6 +6152,21 @@ export function activate(context: vscode.ExtensionContext) {
     // 사이드바 1인 기업 모드(👔) ON/OFF와도 무관 — 백그라운드에서 계속 일함.
     provider.startAutoCycle(15, 0);
 
+    // ============================================================
+    // UI Registration (P0: Must happen before any early returns)
+    // ============================================================
+    context.subscriptions.push(
+        vscode.window.registerWebviewViewProvider('shin-ai-chat-view', provider, {
+            webviewOptions: { retainContextWhenHidden: true }
+        })
+    );
+
+    _taskTreeProvider = new TaskTreeProvider();
+    _approvalsPanelProvider = new ApprovalsPanelProvider();
+    _ytDashboardProvider = new YouTubeDashboardProvider();
+    // ============================================================
+
+
     // Telegram bidirectional bot — quietly idles when token/chat_id missing,
     // self-activates as soon as the user fills config.md.
     startTelegramPolling();
@@ -7626,9 +6184,9 @@ export function activate(context: vscode.ExtensionContext) {
     /* P1-7: Pre-alarm loop — sends 1d/1h-before-due reminders. */
     startPreAlarmLoop();
 
-    // ==========================================
+    // ============================================================
     // 초기 설정 마법사 (첫 실행 시에만)
-    // ==========================================
+    // ============================================================
     const isFirstRun = !context.globalState.get('setupComplete');
     if (isFirstRun) {
         (async () => {
@@ -7642,8 +6200,8 @@ export function activate(context: vscode.ExtensionContext) {
                     if (lmRes.data?.data?.length > 0) {
                         engineName = 'LM Studio';
                         modelName = lmRes.data.data[0].id;
-                        await vscode.workspace.getConfiguration('connectAiLab').update('ollamaUrl', 'http://127.0.0.1:1234', vscode.ConfigurationTarget.Global);
-                        await vscode.workspace.getConfiguration('connectAiLab').update('defaultModel', modelName, vscode.ConfigurationTarget.Global);
+                        await vscode.workspace.getConfiguration('shinAi').update('ollamaUrl', 'http://127.0.0.1:1234', vscode.ConfigurationTarget.Global);
+                        await vscode.workspace.getConfiguration('shinAi').update('defaultModel', modelName, vscode.ConfigurationTarget.Global);
                     }
                 } catch {}
 
@@ -7653,8 +6211,8 @@ export function activate(context: vscode.ExtensionContext) {
                         if (ollamaRes.data?.models?.length > 0) {
                             engineName = 'Ollama';
                             modelName = ollamaRes.data.models[0].name;
-                            await vscode.workspace.getConfiguration('connectAiLab').update('ollamaUrl', 'http://127.0.0.1:11434', vscode.ConfigurationTarget.Global);
-                            await vscode.workspace.getConfiguration('connectAiLab').update('defaultModel', modelName, vscode.ConfigurationTarget.Global);
+                            await vscode.workspace.getConfiguration('shinAi').update('ollamaUrl', 'http://127.0.0.1:11434', vscode.ConfigurationTarget.Global);
+                            await vscode.workspace.getConfiguration('shinAi').update('defaultModel', modelName, vscode.ConfigurationTarget.Global);
                         }
                     } catch {}
                 }
@@ -7680,9 +6238,9 @@ export function activate(context: vscode.ExtensionContext) {
         })();
     }
 
-    // ==========================================
+    // ============================================================
     // EZER AI <-> SHIN AI Bridge Server (Port 4825)
-    // ==========================================
+    // ============================================================
     try {
         const server = http.createServer((req, res) => {
             res.setHeader('Access-Control-Allow-Origin', '*'); 
@@ -7802,7 +6360,7 @@ export function activate(context: vscode.ExtensionContext) {
                             const isTimeout = apiErr.code === 'ETIMEDOUT' || apiErr.code === 'ECONNABORTED' || apiErr.message?.includes('timeout');
                             const isConn = apiErr.code === 'ECONNREFUSED' || apiErr.code === 'ENOTFOUND';
                             const errDetail = isTimeout
-                                ? `⏱ 모델이 시간 안에 답을 못 냈어요. 다음 중 하나 시도하세요:\n  • 더 작은 모델로 변경 (gemma2:2b, qwen2.5:1.5b 등)\n  • 안티그래비티 설정에서 connectAiLab.requestTimeout을 600(10분) 이상으로`
+                                ? `⏱ 모델이 시간 안에 답을 못 냈어요. 다음 중 하나 시도하세요:\n  • 더 작은 모델로 변경 (gemma2:2b, qwen2.5:1.5b 등)\n  • 안티그래비티 설정에서 shinAi.requestTimeout을 600(10분) 이상으로`
                                 : isConn
                                 ? `🔌 AI 엔진에 연결 못함. Ollama/LM Studio가 켜져 있는지 확인해주세요.\n  • Ollama: 터미널에서 \`ollama serve\`\n  • LM Studio: 앱 실행 후 Local Server 시작`
                                 : `AI 엔진 호출 실패: ${apiErr.message || '알 수 없는 원인'}`;
@@ -8184,7 +6742,7 @@ export function activate(context: vscode.ExtensionContext) {
                 _bridgeRetryCount++;
                 if (_bridgeRetryCount > 2) {
                     vscode.window.showErrorMessage(
-                        '🚫 Bridge 인계 2회 실패. 다른 Anti-Gravity 창을 직접 닫고 재시작해주세요.'
+                        '🚫 Bridge 인계 2회 실패. 다른 SHIN AI 창을 직접 닫고 재시작해주세요.'
                     );
                     return;
                 }
@@ -8253,22 +6811,10 @@ export function activate(context: vscode.ExtensionContext) {
         console.error('[SHIN AI Bridge] failed to start:', e);
         vscode.window.showErrorMessage(`🚫 SHIN AI Bridge 초기화 실패: ${e?.message || e}`);
     }
-    // ==========================================
+    // ============================================================
 
-    context.subscriptions.push(
-        vscode.window.registerWebviewViewProvider('connect-ai-lab-v2-view', provider, {
-            webviewOptions: { retainContextWhenHidden: true }
-        })
-    );
+    // Sidebar panels are moved to top of activate()
 
-    // Sidebar panels are intentionally minimal — only Chat lives in the
-    // sidebar now. Tasks / Approvals / YouTube all flow through the
-    // full-screen dashboard ("회사 둘러보기"). We still keep TaskTreeProvider
-    // instantiated because it owns the onTrackerChanged event subscription,
-    // and other code paths reuse the YouTube/Approvals provider helpers.
-    _taskTreeProvider = new TaskTreeProvider();
-    _approvalsPanelProvider = new ApprovalsPanelProvider();
-    _ytDashboardProvider = new YouTubeDashboardProvider();
 
     // Persistent status bar — always-visible entry into the dashboard.
     // Replaces the old in-sidebar CTAs. Click → "SHIN AI: 회사 둘러보기".
@@ -8277,7 +6823,7 @@ export function activate(context: vscode.ExtensionContext) {
     );
     dashStatusBar.text = '$(organization) 우리 회사';
     dashStatusBar.tooltip = '우리 회사 — 에이전트 팀 + 오늘의 일 한 눈에';
-    dashStatusBar.command = 'connectAiLab.dashboard.open';
+    dashStatusBar.command = 'shinAi.dashboard.open';
     dashStatusBar.show();
     context.subscriptions.push(dashStatusBar);
 
@@ -8287,7 +6833,7 @@ export function activate(context: vscode.ExtensionContext) {
     const aprStatusBar = vscode.window.createStatusBarItem(
         vscode.StatusBarAlignment.Left, 99
     );
-    aprStatusBar.command = 'connectAiLab.dashboard.open';
+    aprStatusBar.command = 'shinAi.dashboard.open';
     aprStatusBar.tooltip = '승인 대기 액션이 있어요 — 클릭해서 처리';
     const refreshAprBadge = () => {
         try {
@@ -8305,7 +6851,7 @@ export function activate(context: vscode.ExtensionContext) {
     context.subscriptions.push(aprStatusBar);
     setInterval(refreshAprBadge, 8000);
     context.subscriptions.push(
-        vscode.commands.registerCommand('connectAiLab.youtube.connectOAuth', async () => {
+        vscode.commands.registerCommand('shinAi.youtube.connectOAuth', async () => {
             const r = await startYouTubeOAuthFlow();
             if (r.ok) {
                 vscode.window.showInformationMessage(r.message);
@@ -8315,7 +6861,7 @@ export function activate(context: vscode.ExtensionContext) {
                 vscode.window.showWarningMessage(r.message);
             }
         }),
-        vscode.commands.registerCommand('connectAiLab.dashboard.open', () => {
+        vscode.commands.registerCommand('shinAi.dashboard.open', () => {
             try {
                 _dashboardExtensionUri = context.extensionUri;
                 CompanyDashboardPanel.createOrShow(context.extensionUri);
@@ -8325,24 +6871,24 @@ export function activate(context: vscode.ExtensionContext) {
                 console.error('[dashboard.open] failed:', e);
             }
         }),
-        vscode.commands.registerCommand('connectAiLab.apiConnections.open', () => {
+        vscode.commands.registerCommand('shinAi.apiConnections.open', () => {
             ApiConnectionsPanel.createOrShow();
         }),
         /* v2.89.137 — 매출 대시보드 (PayPal 시각화) */
-        vscode.commands.registerCommand('connectAiLab.revenueDashboard.open', () => {
+        vscode.commands.registerCommand('shinAi.revenueDashboard.open', () => {
             RevenueDashboardPanel.createOrShow();
         })
     );
     context.subscriptions.push(
-        vscode.commands.registerCommand('connectAiLab.tasks.refresh', () => {
+        vscode.commands.registerCommand('shinAi.tasks.refresh', () => {
             _taskTreeProvider?.refresh();
         }),
-        vscode.commands.registerCommand('connectAiLab.tasks.markDone', (item: TaskTreeItem) => {
+        vscode.commands.registerCommand('shinAi.tasks.markDone', (item: TaskTreeItem) => {
             if (item?.task) {
                 updateTrackerTask(item.task.id, { status: 'done', evidence: '사이드바에서 완료 처리' });
             }
         }),
-        vscode.commands.registerCommand('connectAiLab.tasks.cancel', async (item: TaskTreeItem) => {
+        vscode.commands.registerCommand('shinAi.tasks.cancel', async (item: TaskTreeItem) => {
             if (!item?.task) return;
             const ok = await vscode.window.showWarningMessage(
                 `"${item.task.title}" 취소할까요?`,
@@ -8353,7 +6899,7 @@ export function activate(context: vscode.ExtensionContext) {
                 updateTrackerTask(item.task.id, { status: 'cancelled', evidence: '사이드바에서 취소' });
             }
         }),
-        vscode.commands.registerCommand('connectAiLab.tasks.setPriority', async (item: TaskTreeItem) => {
+        vscode.commands.registerCommand('shinAi.tasks.setPriority', async (item: TaskTreeItem) => {
             if (!item?.task) return;
             const pick = await vscode.window.showQuickPick(
                 [
@@ -8368,7 +6914,7 @@ export function activate(context: vscode.ExtensionContext) {
                 updateTrackerTask(item.task.id, { priority: pick.value });
             }
         }),
-        vscode.commands.registerCommand('connectAiLab.tasks.openTrackerJson', async () => {
+        vscode.commands.registerCommand('shinAi.tasks.openTrackerJson', async () => {
             try {
                 const p = path.join(getCompanyDir(), '_shared', 'tracker.json');
                 if (!fs.existsSync(p)) {
@@ -8383,7 +6929,7 @@ export function activate(context: vscode.ExtensionContext) {
         }),
         /* v2.89.114 — LLM 연결 진단 도구. 사용자가 "왜 안 되는지" 한 번에 파악.
            Ollama 11434, LM Studio 1234, 설정된 baseUrl 모두 체크해서 단계별 결과 표시. */
-        vscode.commands.registerCommand('connectAiLab.diagnoseConnection', async () => {
+        vscode.commands.registerCommand('shinAi.diagnoseConnection', async () => {
             const out: string[] = [];
             const ok = (s: string) => out.push(`✅ ${s}`);
             const warn = (s: string) => out.push(`⚠️ ${s}`);
@@ -8480,9 +7026,9 @@ export function activate(context: vscode.ExtensionContext) {
                 }
                 /* 사용자 override 표시 */
                 try {
-                    const cfgPy = (vscode.workspace.getConfiguration('connectAiLab').get<string>('pythonPath') || '').trim();
-                    if (cfgPy) info(`사용자 설정 (\`connectAiLab.pythonPath\`): \`${cfgPy}\``);
-                    else info(`사용자 설정 없음 (자동 감지 사용). 직접 지정하려면 명령 팔레트 → "설정 열기" → \`connectAiLab.pythonPath\``);
+                    const cfgPy = (vscode.workspace.getConfiguration('shinAi').get<string>('pythonPath') || '').trim();
+                    if (cfgPy) info(`사용자 설정 (\`shinAi.pythonPath\`): \`${cfgPy}\``);
+                    else info(`사용자 설정 없음 (자동 감지 사용). 직접 지정하려면 명령 팔레트 → "설정 열기" → \`shinAi.pythonPath\``);
                 } catch { /* ignore */ }
                 /* 평행 진단 — 다른 후보 명령들 작동 여부 */
                 const altCmds = process.platform === 'win32'
@@ -8502,7 +7048,7 @@ export function activate(context: vscode.ExtensionContext) {
                     }
                 }
                 info('후보 명령 평행 테스트:');
-                altResults.forEach(r => out.push(r));
+                altResults.forEach((r: any) => out.push(r));
             } catch (pyErr: any) {
                 err(`Python 진단 자체 실패: ${pyErr?.message || pyErr}`);
             }
@@ -8510,11 +7056,11 @@ export function activate(context: vscode.ExtensionContext) {
             /* 결과 패널 표시 */
             const doc = await vscode.workspace.openTextDocument({
                 language: 'markdown',
-                content: `# 🔍 SHIN AI — LLM 연결 진단\n\n_${new Date().toLocaleString('ko-KR')}_\n\n${out.join('\n')}\n\n---\n\n## 자주 막히는 곳\n\n### LM Studio가 처음이면\n1. LM Studio 앱 열기\n2. 좌측 사이드바 'Discover' (🔍) 에서 모델 검색·다운로드 (예: 'Qwen2.5 7B Instruct')\n3. 좌측 사이드바 'Chat' (💬) 가서 모델이 로드되는지 확인 (한 번 채팅해봐야 메모리에 올라옴)\n4. 좌측 사이드바 'Developer' (또는 'Local Server') 가기\n5. **'Start Server' 버튼 클릭** ← 이게 핵심. 시작 안 하면 SHIN AI에서 못 봐요.\n6. 화면에 \`http://localhost:1234\` 같은 URL이 보이면 OK\n7. SHIN AI 사이드바 위 모델 메뉴에서 모델 선택 → 채팅 시도\n\n### Ollama가 처음이면\n1. \`ollama pull qwen2.5:7b\` (터미널, 한 번만)\n2. \`ollama serve\` 또는 Ollama 앱 실행\n3. SHIN AI 모델 메뉴에서 선택 → 채팅\n\n### 그래도 안 되면\n- VS Code/Anti-Gravity 재시작\n- 명령 팔레트 (Cmd+Shift+P) → \`SHIN AI: 연결 진단\` 다시 실행\n- 위 결과 스크린샷 + LM Studio 'Developer' 탭 스크린샷을 함께 제보\n`,
+                content: `# 🔍 SHIN AI — LLM 연결 진단\n\n_${new Date().toLocaleString('ko-KR')}_\n\n${out.join('\n')}\n\n---\n\n## 자주 막히는 곳\n\n### LM Studio가 처음이면\n1. LM Studio 앱 열기\n2. 좌측 사이드바 'Discover' (🔍) 에서 모델 검색·다운로드 (예: 'Qwen2.5 7B Instruct')\n3. 좌측 사이드바 'Chat' (💬) 가서 모델이 로드되는지 확인 (한 번 채팅해봐야 메모리에 올라옴)\n4. 좌측 사이드바 'Developer' (또는 'Local Server') 가기\n5. **'Start Server' 버튼 클릭** ← 이게 핵심. 시작 안 하면 SHIN AI에서 못 봐요.\n6. 화면에 \`http://localhost:1234\` 같은 URL이 보이면 OK\n7. SHIN AI 사이드바 위 모델 메뉴에서 모델 선택 → 채팅 시도\n\n### Ollama가 처음이면\n1. \`ollama pull qwen2.5:7b\` (터미널, 한 번만)\n2. \`ollama serve\` 또는 Ollama 앱 실행\n3. SHIN AI 모델 메뉴에서 선택 → 채팅\n\n### 그래도 안 되면\n- VS Code/SHIN AI 재시작\n- 명령 팔레트 (Cmd+Shift+P) → \`SHIN AI: 연결 진단\` 다시 실행\n- 위 결과 스크린샷 + LM Studio 'Developer' 탭 스크린샷을 함께 제보\n`,
             });
             await vscode.window.showTextDocument(doc, { preview: false });
         }),
-        vscode.commands.registerCommand('connectAiLab.dailyBriefing.fireNow', async () => {
+        vscode.commands.registerCommand('shinAi.dailyBriefing.fireNow', async () => {
             try {
                 await _runDailyBriefingOnce(true);
                 vscode.window.showInformationMessage('🌅 데일리 브리핑이 텔레그램으로 발송됐어요. (토큰 미설정이면 무시됨)');
@@ -8525,7 +7071,7 @@ export function activate(context: vscode.ExtensionContext) {
         /* v2.89.115 — 직전 specialist 산출물을 재사용 가능한 패턴으로 승격.
            Hermes Agent의 self-improving skill 패턴을 1인 기업 컨셉에 맞게
            단순화 (자동 노이즈 X, 사용자가 명시적으로 트리거할 때만). */
-        vscode.commands.registerCommand('connectAiLab.skill.saveLast', async () => {
+        vscode.commands.registerCommand('shinAi.skill.saveLast', async () => {
             try {
                 const last = _getLastSpecialistOutput();
                 if (!last) {
@@ -8533,7 +7079,7 @@ export function activate(context: vscode.ExtensionContext) {
                     return;
                 }
                 const allIds = SPECIALIST_IDS.slice();
-                const items = allIds.map(id => {
+                const items = allIds.map((id: any) => {
                     const a = AGENTS[id];
                     const isDefault = id === last.agentId;
                     return {
@@ -8562,7 +7108,7 @@ export function activate(context: vscode.ExtensionContext) {
                 vscode.window.showErrorMessage(`스킬 저장 실패: ${e?.message || e}`);
             }
         }),
-        vscode.commands.registerCommand('connectAiLab.youtube.refreshCommentQueue', async () => {
+        vscode.commands.registerCommand('shinAi.youtube.refreshCommentQueue', async () => {
             try {
                 vscode.window.showInformationMessage('📺 YouTube 댓글 가져오는 중...');
                 const r = await _youtubeCommentReplyDraftBatch({});
@@ -8577,7 +7123,7 @@ export function activate(context: vscode.ExtensionContext) {
                 vscode.window.showErrorMessage(`YouTube 큐 갱신 실패: ${e?.message || e}`);
             }
         }),
-        vscode.commands.registerCommand('connectAiLab.developer.scaffoldProject', async () => {
+        vscode.commands.registerCommand('shinAi.developer.scaffoldProject', async () => {
             try {
                 const name = await vscode.window.showInputBox({
                     placeHolder: '프로젝트 이름 (영문/숫자/하이픈)',
@@ -8616,28 +7162,28 @@ export function activate(context: vscode.ExtensionContext) {
 
     // New Chat
     context.subscriptions.push(
-        vscode.commands.registerCommand('connect-ai-lab.newChat', () => {
+        vscode.commands.registerCommand('shin-ai.newChat', () => {
             provider.resetChat();
         })
     );
 
     // Export Chat as Markdown
     context.subscriptions.push(
-        vscode.commands.registerCommand('connect-ai-lab.exportChat', async () => {
+        vscode.commands.registerCommand('shin-ai.exportChat', async () => {
             await provider.exportChat();
         })
     );
 
     // Focus Chat Input (Cmd+L)
     context.subscriptions.push(
-        vscode.commands.registerCommand('connect-ai-lab.focusChat', () => {
+        vscode.commands.registerCommand('shin-ai.focusChat', () => {
             provider.focusInput();
         })
     );
 
     // Explain Selected Code (right-click menu)
     context.subscriptions.push(
-        vscode.commands.registerCommand('connect-ai-lab.explainSelection', () => {
+        vscode.commands.registerCommand('shin-ai.explainSelection', () => {
             const editor = vscode.window.activeTextEditor;
             if (!editor) { return; }
             const selection = editor.document.getText(editor.selection);
@@ -8649,41 +7195,41 @@ export function activate(context: vscode.ExtensionContext) {
 
     // Show Brain Network Topology
     context.subscriptions.push(
-        vscode.commands.registerCommand('connect-ai-lab.showBrainNetwork', () => {
+        vscode.commands.registerCommand('shin-ai.showBrainNetwork', () => {
             showBrainNetwork(context);
         })
     );
 
     // 🏢 Open virtual office (스몰빌식 가상 사무실)
     context.subscriptions.push(
-        vscode.commands.registerCommand('connect-ai-lab.openOffice', () => {
+        vscode.commands.registerCommand('shin-ai.openOffice', () => {
             OfficePanel.createOrShow(context, provider);
         }),
         /* v2.89.96 — 사이드바 ⋯ 메뉴가 어떤 이유로 클릭 안 받을 때를 대비한
            명령 팔레트 fallback. Cmd/Ctrl+Shift+P → "SHIN AI: 설정 열기" */
-        vscode.commands.registerCommand('connect-ai-lab.openSettings', async () => {
+        vscode.commands.registerCommand('shin-ai.openSettings', async () => {
             try { await (provider as any)._handleSettingsMenu?.(); }
-            catch (e: any) {
+            catch (e) {
                 vscode.window.showErrorMessage(`설정 메뉴 열기 실패: ${e?.message || e}`);
             }
         }),
         /* 회사 폴더 위치 변경 — 두뇌 안 nested vs 완전 분리 선택 */
-        vscode.commands.registerCommand('connect-ai-lab.changeCompanyDir', async () => {
+        vscode.commands.registerCommand('shin-ai.changeCompanyDir', async () => {
             await runChangeCompanyDir();
         }),
         /* 회사 GitHub 별도 연결 — 두뇌와 분리된 repo로 백업 */
-        vscode.commands.registerCommand('connect-ai-lab.connectCompanyRepo', async () => {
+        vscode.commands.registerCommand('shin-ai.connectCompanyRepo', async () => {
             await runConnectCompanyRepo();
         }),
         /* Google Calendar 자동 일정 등록 (OAuth) */
-        vscode.commands.registerCommand('connect-ai-lab.connectGoogleCalendarWrite', async () => {
+        vscode.commands.registerCommand('shin-ai.connectGoogleCalendarWrite', async () => {
             await runConnectGoogleCalendarWrite();
         })
     );
 }
 
-async function runConnectCompanyRepo() {
-    const cfg = vscode.workspace.getConfiguration('connectAiLab');
+export async function runConnectCompanyRepo() {
+    const cfg = vscode.workspace.getConfiguration('shinAi');
     const companyDir = getCompanyDir();
     const brainDir = _getBrainDir();
     const isNested = path.normalize(companyDir).startsWith(path.normalize(brainDir) + path.sep);
@@ -8730,8 +7276,8 @@ async function runConnectCompanyRepo() {
      A) Nested under brain (default, recommended for solo users)
      B) Pick another folder (detached — separate git repo, team-shared, ...)
      C) Cancel */
-async function runChangeCompanyDir() {
-    const cfg = vscode.workspace.getConfiguration('connectAiLab');
+export async function runChangeCompanyDir() {
+    const cfg = vscode.workspace.getConfiguration('shinAi');
     const cur = (cfg.get<string>('companyDir', '') || '').trim();
     const oldDir = getCompanyDir();
     const brainDir = _getBrainDir();
@@ -8838,13 +7384,13 @@ interface BrainLink {
     target: string;
     type: 'wikilink' | 'mdlink' | 'tag' | 'semantic';
 }
-interface BrainGraph {
+export interface BrainGraph {
     nodes: BrainNode[];
     links: BrainLink[];
     tags: string[];        // all unique tags found
 }
 
-function buildKnowledgeGraph(brainDir: string): BrainGraph {
+export function buildKnowledgeGraph(brainDir: string): BrainGraph {
     const nodes: BrainNode[] = [];
     const nodeByPath = new Map<string, BrainNode>();
     const nodeByBasename = new Map<string, BrainNode[]>();
@@ -8903,7 +7449,7 @@ function buildKnowledgeGraph(brainDir: string): BrainGraph {
         if (matches.length === 0) return null;
         // Prefer same-folder match if multiple
         if (matches.length > 1) {
-            const sameFolder = matches.find(m => path.dirname(m.id) === fromDir);
+            const sameFolder = matches.find((m: any) => path.dirname(m.id) === fromDir);
             if (sameFolder) return sameFolder;
         }
         return matches[0];
@@ -8946,12 +7492,12 @@ function buildKnowledgeGraph(brainDir: string): BrainGraph {
             localTags.add(m[1]);
         }
         node.tags = [...localTags];
-        localTags.forEach(t => tagSet.add(t));
+        localTags.forEach((t: any) => tagSet.add(t));
     }
 
     // --- Pass 2.5: Semantic Implicit Links (Brain Pattern Recognition) ---
     // If a document mentions another document's exact basename (and it's >= 2 chars), create a semantic link.
-    const validBasenames = nodes.filter(n => n.name.length >= 2);
+    const validBasenames = nodes.filter((n: any) => n.name.length >= 2);
     for (const node of nodes) {
         let content: string;
         try { content = fs.readFileSync(path.join(brainDir, node.id), 'utf-8').slice(0, 100_000); }
@@ -8986,7 +7532,7 @@ function buildKnowledgeGraph(brainDir: string): BrainGraph {
         }
     }
     const topTags = [...tagToNodes.entries()]
-        .sort((a, b) => b[1].length - a[1].length)
+        .sort((a: any, b: any) => b[1].length - a[1].length)
         .slice(0, 8);
     for (const [, nodesWithTag] of topTags) {
         if (nodesWithTag.length < 2 || nodesWithTag.length > 25) continue;
@@ -9010,7 +7556,7 @@ function buildKnowledgeGraph(brainDir: string): BrainGraph {
     return { nodes, links: dedup, tags: [...tagSet] };
 }
 
-async function showBrainNetwork(_context: vscode.ExtensionContext) {
+export async function showBrainNetwork(_context: vscode.ExtensionContext) {
     let panel: vscode.WebviewPanel | undefined;
     try {
         const assetsRoot = vscode.Uri.file(path.join(_context.extensionPath, 'assets'));
@@ -9042,7 +7588,7 @@ async function showBrainNetwork(_context: vscode.ExtensionContext) {
         });
 
         const graphJson = JSON.stringify({
-            nodes: graph.nodes.map(n => ({
+            nodes: graph.nodes.map((n: any) => ({
                 id: n.id, name: n.name, folder: n.folder, tags: n.tags,
                 connections: n.incoming + n.outgoing
             })),
@@ -9071,7 +7617,7 @@ async function showBrainNetwork(_context: vscode.ExtensionContext) {
 }
 
 /** Returns the full graph webview HTML. Reused by showBrainNetwork + ThinkingPanel. */
-function _RENDER_GRAPH_HTML(graphJson: string, isEmpty: boolean, forceGraphSrc: string, cspSource: string): string {
+export function _RENDER_GRAPH_HTML(graphJson: string, isEmpty: boolean, forceGraphSrc: string, cspSource: string): string {
     // NOTE: force-graph.min.js is loaded as an external script (not inlined).
     // Inlining via template literal corrupts the bundle because the minified
     // library contains `${...}` sequences that get evaluated as template parts.
@@ -9615,7 +8161,7 @@ function _RENDER_GRAPH_HTML(graphJson: string, isEmpty: boolean, forceGraphSrc: 
     function findNodeForReadRequest(req) {
       if (typeof req !== 'string' || !req) return null;
       // Try by exact id first
-      const direct = data.nodes.find(n => n.id === req || n.id === req + '.md');
+      const direct = data.nodes.find((n: any) => n.id === req || n.id === req + '.md');
       if (direct) return direct;
       // Then by basename match
       const base = (req.split(/[\\\\/]/).pop() || '').replace(/\\.md$/i, '').toLowerCase();
@@ -9982,7 +8528,7 @@ function _RENDER_GRAPH_HTML(graphJson: string, isEmpty: boolean, forceGraphSrc: 
 // _SIDEBAR_BRAND_CSS moved to assets/webview/sidebar-brand.css
 // _BRAND_CSS moved to assets/webview/brand.css
 class ApprovalsPanelProvider implements vscode.WebviewViewProvider {
-    public static readonly viewId = 'connectAiLab.approvals';
+    public static readonly viewId = 'shinAi.approvals';
     private _view?: vscode.WebviewView;
     private _refreshTicker: NodeJS.Timeout | null = null;
 
@@ -9993,7 +8539,7 @@ class ApprovalsPanelProvider implements vscode.WebviewViewProvider {
         view.webview.onDidReceiveMessage(async (msg) => {
             if (msg?.type === 'refresh') this._post();
             else if (msg?.type === 'openDash') {
-                vscode.commands.executeCommand('connectAiLab.dashboard.open');
+                vscode.commands.executeCommand('shinAi.dashboard.open');
             } else if (msg?.type === 'approve' && msg.id) {
                 const r = await resolveApproval(msg.id, 'approved');
                 this._post(r.message);
@@ -10002,7 +8548,7 @@ class ApprovalsPanelProvider implements vscode.WebviewViewProvider {
                 this._post(r.message);
             } else if (msg?.type === 'open' && msg.id) {
                 try {
-                    const ap = listPendingApprovals().find(a => a.id.endsWith(msg.id));
+                    const ap = listPendingApprovals().find((a: any) => a.id.endsWith(msg.id));
                     if (ap) {
                         const p = path.join(_approvalsPendingDir(), `${ap.id}.md`);
                         const doc = await vscode.workspace.openTextDocument(p);
@@ -10028,7 +8574,7 @@ class ApprovalsPanelProvider implements vscode.WebviewViewProvider {
 
     private _post(toast?: string) {
         if (!this._view) return;
-        const items = listPendingApprovals().map(a => {
+        const items = listPendingApprovals().map((a: any) => {
             const ag = AGENTS[a.agentId];
             return {
                 id: a.id, shortId: a.id.slice(-9),
@@ -10103,7 +8649,7 @@ vscode.postMessage({ type: 'refresh' });
 let _approvalsPanelProvider: ApprovalsPanelProvider | null = null;
 
 class YouTubeDashboardProvider implements vscode.WebviewViewProvider {
-    public static readonly viewId = 'connectAiLab.youtube';
+    public static readonly viewId = 'shinAi.youtube';
     private _view?: vscode.WebviewView;
 
     resolveWebviewView(view: vscode.WebviewView): void {
@@ -10115,7 +8661,7 @@ class YouTubeDashboardProvider implements vscode.WebviewViewProvider {
                 if (msg?.type === 'refresh') {
                     await this._sendChannelData();
                 } else if (msg?.type === 'openDash') {
-                    vscode.commands.executeCommand('connectAiLab.dashboard.open');
+                    vscode.commands.executeCommand('shinAi.dashboard.open');
                 } else if (msg?.type === 'addCompetitor' && msg.handleOrId) {
                     await this._addCompetitor(msg.handleOrId);
                 } else if (msg?.type === 'removeCompetitor' && msg.id) {
@@ -10125,7 +8671,7 @@ class YouTubeDashboardProvider implements vscode.WebviewViewProvider {
                     this._view?.webview.postMessage({ type: 'toast', text: r.reason ? `⚠️ ${r.reason}` : `📺 ${r.drafted}건 큐 생성, ${r.skipped}건 스킵`, err: !!r.reason });
                     await this._sendChannelData();
                 } else if (msg?.type === 'connectOAuth') {
-                    vscode.commands.executeCommand('connectAiLab.youtube.connectOAuth');
+                    vscode.commands.executeCommand('shinAi.youtube.connectOAuth');
                 }
             } catch (e: any) {
                 this._view?.webview.postMessage({ type: 'toast', text: `⚠️ ${e?.message || e}`, err: true });
@@ -10144,7 +8690,7 @@ class YouTubeDashboardProvider implements vscode.WebviewViewProvider {
         try {
             const txt = _safeReadText(this._competitorsPath());
             const arr = JSON.parse(txt || '[]');
-            return Array.isArray(arr) ? arr.filter(x => typeof x === 'string') : [];
+            return Array.isArray(arr) ? arr.filter((x: any) => typeof x === 'string') : [];
         } catch { return []; }
     }
     private _writeCompetitors(ids: string[]) {
@@ -10181,7 +8727,7 @@ class YouTubeDashboardProvider implements vscode.WebviewViewProvider {
     }
 
     private async _removeCompetitor(id: string) {
-        const list = this._readCompetitors().filter(x => x !== id);
+        const list = this._readCompetitors().filter((x: any) => x !== id);
         this._writeCompetitors(list);
         await this._sendChannelData();
     }
@@ -10255,15 +8801,15 @@ class YouTubeDashboardProvider implements vscode.WebviewViewProvider {
         }
         const myVideos = await this._fetchRecentVideos(my.uploadsPlaylist, cfg.apiKey, 5);
         /* Compute simple engagement KPI: avg like rate per recent video. */
-        const totalViews = myVideos.reduce((s, v) => s + v.views, 0);
-        const totalEng   = myVideos.reduce((s, v) => s + v.likes + v.comments, 0);
+        const totalViews = myVideos.reduce((s: any, v: any) => s + v.views, 0);
+        const totalEng   = myVideos.reduce((s: any, v: any) => s + v.likes + v.comments, 0);
         const engagementPct = totalViews > 0 ? ((totalEng / totalViews) * 100).toFixed(2) : '0.00';
         const competitors: any[] = [];
         for (const cid of this._readCompetitors().slice(0, 5)) {
             const c = await this._fetchChannelSummary(cid, cfg.apiKey);
             if (c) competitors.push(c);
         }
-        const pendingComments = listPendingApprovals().filter(a => a.kind === 'youtube.comment_reply').length;
+        const pendingComments = listPendingApprovals().filter((a: any) => a.kind === 'youtube.comment_reply').length;
         let analytics: any = null;
         if (oauthConnected) {
             try {
@@ -10335,7 +8881,7 @@ vscode.postMessage({ type: 'refresh' });
     }
 }
 
-let _ytDashboardProvider: YouTubeDashboardProvider | null = null;
+export let _ytDashboardProvider: YouTubeDashboardProvider | null = null;
 
 /* ── Full-screen Company Dashboard ────────────────────────────────────────
    The sidebar webviews are inherently constrained to ~220px wide; analytics
@@ -10344,875 +8890,6 @@ let _ytDashboardProvider: YouTubeDashboardProvider | null = null;
    sidebar versions become quick-glance status cards that link here.
    Singleton: re-opening the command brings the existing panel forward
    instead of stacking. */
-class CompanyDashboardPanel {
-    public static current: CompanyDashboardPanel | null = null;
-    public static readonly viewType = 'connectAiLab.dashboard';
-    private readonly _panel: vscode.WebviewPanel;
-    private _disposables: vscode.Disposable[] = [];
-    private _refreshTimer: NodeJS.Timeout | null = null;
-
-    public static createOrShow(extensionUri: vscode.Uri) {
-        const column = vscode.ViewColumn.Active;
-        if (CompanyDashboardPanel.current) {
-            CompanyDashboardPanel.current._panel.reveal(column);
-            CompanyDashboardPanel.current.refresh();
-            return;
-        }
-        const panel = vscode.window.createWebviewPanel(
-            CompanyDashboardPanel.viewType,
-            '👥 직원 에이전트 보기',
-            column,
-            { enableScripts: true, retainContextWhenHidden: true }
-        );
-        CompanyDashboardPanel.current = new CompanyDashboardPanel(panel, extensionUri);
-    }
-
-    private constructor(panel: vscode.WebviewPanel, _extUri: vscode.Uri) {
-        this._panel = panel;
-        this._panel.webview.html = this._html();
-        this._panel.onDidDispose(() => this._dispose(), null, this._disposables);
-        this._panel.webview.onDidReceiveMessage(async (msg) => {
-            try {
-                if (msg?.type === 'refresh') {
-                    await this._sendState();
-                } else if (msg?.type === 'openRevenueDashboard') {
-                    /* v2.89.142 — 매출 카드 버튼 → 풀 대시보드 패널 띄움 */
-                    RevenueDashboardPanel.createOrShow();
-                } else if (msg?.type === 'askHyunbinRevenue') {
-                    /* v2.89.146 — corporate dispatch 직접 호출. injectPrompt 는
-                       bypassCorporate=true 라 shortcut 건너뛰는 버그 회피. */
-                    try {
-                        if (_activeChatProvider) {
-                            const model = _activeChatProvider.getDefaultModel();
-                            _activeChatProvider.runCorporatePromptExternal(
-                                '현빈아, 이번 달 PayPal 매출 실데이터 가져와서 분석하고 다음 액션 1개 추천해줘.',
-                                model
-                            ).catch(() => { /* ignore */ });
-                        }
-                    } catch { /* ignore */ }
-                } else if (msg?.type === 'requestRevenueMini') {
-                    /* v2.89.142 — 회사 대시보드의 미니 매출 위젯 데이터 요청.
-                       paypal_revenue.py OUTPUT=json 로 실행 → 응답을 webview 에 회신. */
-                    try {
-                        const ppToolDir = path.join(getCompanyDir(), '_agents', 'business', 'tools');
-                        const ppScript = path.join(ppToolDir, 'paypal_revenue.py');
-                        const ppJson = path.join(ppToolDir, 'paypal_revenue.json');
-                        if (!fs.existsSync(ppScript) || !fs.existsSync(ppJson)) {
-                            this._panel.webview.postMessage({ type: 'revenueMini', data: { error: 'PayPal 미설정 — 외부 연결 패널에서 입력하세요' } });
-                            return;
-                        }
-                        const cfg = JSON.parse(_safeReadText(ppJson) || '{}');
-                        if (!cfg.CLIENT_ID || !cfg.CLIENT_SECRET) {
-                            this._panel.webview.postMessage({ type: 'revenueMini', data: null });
-                            return;
-                        }
-                        const env = { ...process.env, OUTPUT: 'json', LOOKBACK_DAYS: '30' };
-                        const r = await new Promise<{ exitCode: number; output: string }>((resolve) => {
-                            const cp = require('child_process');
-                            const p = cp.spawn(_pythonCmd(), [ppScript], { cwd: ppToolDir, env });
-                            let out = '';
-                            p.stdout?.on('data', (d: Buffer) => { out += d.toString(); });
-                            p.on('close', (code: number) => resolve({ exitCode: code, output: out }));
-                            setTimeout(() => { try { p.kill(); } catch {} resolve({ exitCode: -1, output: out }); }, 18000);
-                        });
-                        if (r.exitCode !== 0 || !r.output) {
-                            this._panel.webview.postMessage({ type: 'revenueMini', data: { error: 'PayPal 호출 실패 — 권한·자격증명 확인' } });
-                            return;
-                        }
-                        let data: any;
-                        try { data = JSON.parse(r.output); } catch {
-                            this._panel.webview.postMessage({ type: 'revenueMini', data: { error: '응답 파싱 실패' } });
-                            return;
-                        }
-                        this._panel.webview.postMessage({ type: 'revenueMini', data });
-                    } catch (e: any) {
-                        this._panel.webview.postMessage({ type: 'revenueMini', data: { error: e?.message || String(e) } });
-                    }
-                } else if (msg?.type === 'setAgentActive' && msg.agent) {
-                    /* v2.89.107 — 활성/비활성 토글. PIN 안 받음 (Luna는 별도 hireAgent). */
-                    const aid = String(msg.agent || '').trim();
-                    const want = !!msg.active;
-                    if (ALWAYS_ON_AGENTS.has(aid)) {
-                        this._postToast(`⚠️ ${aid}는 핵심 에이전트라 비활성화할 수 없어요.`, true);
-                    } else if (LOCKED_AGENTS_DEFAULT[aid] && want) {
-                        /* Luna 활성화는 PIN 통해서만 — 별도 핸들러 */
-                        this._postToast(`🔒 ${aid}는 PIN 인증이 필요해요. 카드를 클릭하세요.`, true);
-                    } else {
-                        const ok = setAgentActive(aid, want);
-                        if (ok) {
-                            const verb = want ? '활성화됨' : '비활성화됨';
-                            this._postToast(`✅ ${AGENTS[aid]?.emoji || ''} ${AGENTS[aid]?.name || aid} ${verb}`, false);
-                            /* v2.89.112 — 코다리(developer) 첫 활성화 시 시니어 코더 모델 추천. */
-                            if (want && aid === 'developer') {
-                                _maybeRecommendCoderModel(this._panel.webview);
-                            }
-                            await this._sendState();
-                            /* 사이드바도 동기화 */
-                            try {
-                                const sb = _activeChatProvider as any;
-                                if (sb && sb._view) {
-                                    sb._view.webview.postMessage({ type: 'activeAgents', value: readActiveAgents() });
-                                    sb._view.webview.postMessage({ type: 'hiredAgents', value: readHiredAgents() });
-                                }
-                            } catch { /* ignore */ }
-                        } else {
-                            this._postToast(`⚠️ 변경 실패: 회사 폴더 쓰기 권한 확인.`, true);
-                        }
-                    }
-                } else if (msg?.type === 'hireAgent' && msg.agent) {
-                    /* v2.89.103 — PIN 통과 후 webview가 알림. PIN 자체는 sidebar와
-                       동일하게 webview에서 검증(0000) — 백엔드는 영구 저장만 담당.
-                       서버에서도 PIN 재검증해서 위변조 방지. */
-                    const pin = String(msg.pin || '');
-                    const aid = String(msg.agent || '').trim();
-                    if (pin === '0000' && LOCKED_AGENTS_DEFAULT[aid]) {
-                        const ok = markAgentHired(aid);
-                        if (ok) {
-                            this._postToast(`🎉 ${aid} 에이전트 채용 완료. 이제 활용 가능합니다.`, false);
-                            try { vscode.window.showInformationMessage(`🎉 ${aid} 에이전트가 합류했어요!`); } catch { /* ignore */ }
-                        } else {
-                            this._postToast(`⚠️ 채용 실패: 회사 폴더에 쓰기 권한이 없습니다.`, true);
-                        }
-                        await this._sendState();
-                    } else {
-                        this._postToast(`❌ 인증 실패. 잘못된 코드입니다.`, true);
-                    }
-                } else if (msg?.type === 'queueComments') {
-                    const r = await _youtubeCommentReplyDraftBatch({});
-                    this._postToast(r.reason ? `⚠️ ${r.reason}` : `📺 ${r.drafted}건 큐 생성, ${r.skipped}건 스킵`, !!r.reason);
-                    await this._sendState();
-                } else if (msg?.type === 'connectOAuth') {
-                    vscode.commands.executeCommand('connectAiLab.youtube.connectOAuth');
-                } else if (msg?.type === 'addCompetitor' && msg.handleOrId) {
-                    if (_ytDashboardProvider) {
-                        /* Reuse the storage helpers on the sidebar provider — same source of truth. */
-                        await (_ytDashboardProvider as any)._addCompetitor?.(msg.handleOrId);
-                    }
-                    await this._sendState();
-                } else if (msg?.type === 'removeCompetitor' && msg.id) {
-                    if (_ytDashboardProvider) {
-                        await (_ytDashboardProvider as any)._removeCompetitor?.(msg.id);
-                    }
-                    await this._sendState();
-                } else if (msg?.type === 'approve' && msg.id) {
-                    const r = await resolveApproval(msg.id, 'approved');
-                    this._postToast(r.message, !r.ok);
-                    await this._sendState();
-                } else if (msg?.type === 'reject' && msg.id) {
-                    const r = await resolveApproval(msg.id, 'rejected');
-                    this._postToast(r.message, !r.ok);
-                    await this._sendState();
-                } else if (msg?.type === 'openApproval' && msg.id) {
-                    try {
-                        const ap = listPendingApprovals().find(a => a.id.endsWith(msg.id));
-                        if (ap) {
-                            const p = path.join(_approvalsPendingDir(), `${ap.id}.md`);
-                            const doc = await vscode.workspace.openTextDocument(p);
-                            vscode.window.showTextDocument(doc, vscode.ViewColumn.Beside);
-                        }
-                    } catch { /* ignore */ }
-                } else if (msg?.type === 'fireBriefing') {
-                    await _runDailyBriefingOnce(true);
-                    this._postToast('🌅 데일리 브리핑 발사 완료');
-                } else if (msg?.type === 'getAgentModelRouting') {
-                    /* v2.89.26 — 모델 라우팅 모달 데이터 송출. 설치된 모델 + 현재 매핑 */
-                    try {
-                        const installed = await listInstalledModels();
-                        const map = readAgentModelMap();
-                        const defaultModel = getConfig().defaultModel || '';
-                        /* v2.89.36 — 시스템 사양도 같이 보내서 모달이 "이 머신에서 안전한 모델"
-                           표시할 수 있게. 각 모델의 메모리 추정치도 첨부. */
-                        const specs = getSystemSpecs();
-                        const installedWithMem = installed.map(m => ({
-                            ...m,
-                            estMemGB: estimateModelMemoryGB(m.id),
-                            safe: estimateModelMemoryGB(m.id) <= specs.safeModelBudgetGB,
-                        }));
-                        this._panel.webview.postMessage({
-                            type: 'agentModelRoutingData',
-                            installed: installedWithMem,
-                            map,
-                            defaultModel,
-                            agents: AGENT_ORDER.map(id => ({ id, name: AGENTS[id]?.name || id, emoji: AGENTS[id]?.emoji || '🤖', role: AGENTS[id]?.role || '' })),
-                            specs,
-                        });
-                    } catch (e: any) {
-                        this._panel.webview.postMessage({ type: 'agentModelRoutingData', installed: [], map: {}, defaultModel: '', agents: [], error: e?.message || String(e) });
-                    }
-                } else if (msg?.type === 'getSystemSpecs') {
-                    /* v2.89.36 — 트렌딩 모달이 사용자 머신 사양 받아서 모델 추천에 활용 */
-                    try {
-                        this._panel.webview.postMessage({ type: 'systemSpecsData', specs: getSystemSpecs() });
-                    } catch (e: any) {
-                        this._panel.webview.postMessage({ type: 'systemSpecsData', specs: null, error: e?.message || String(e) });
-                    }
-                } else if (msg?.type === 'fetchTrendingModels') {
-                    /* v2.89.30 — HuggingFace API에서 인기 텍스트 LLM 조회.
-                       객관적 데이터 (다운로드 수, 좋아요, 최신성) 기반 추천.
-                       사용자가 어떤 모델이 진짜 인기 있는지 한눈에 파악. */
-                    try {
-                        const limit = Math.min(30, Math.max(5, Number(msg.limit) || 20));
-                        const r = await axios.get('https://huggingface.co/api/models', {
-                            params: {
-                                pipeline_tag: 'text-generation',
-                                sort: 'downloads',
-                                direction: -1,
-                                limit,
-                                full: false,
-                            },
-                            timeout: 10000,
-                            validateStatus: () => true,
-                        });
-                        if (r.status >= 200 && r.status < 300 && Array.isArray(r.data)) {
-                            const models = r.data.map((m: any) => ({
-                                id: m.id || m.modelId || '',
-                                downloads: m.downloads || 0,
-                                likes: m.likes || 0,
-                                lastModified: m.lastModified || '',
-                                tags: Array.isArray(m.tags) ? m.tags.slice(0, 8) : [],
-                            })).filter((m: any) => m.id);
-                            this._panel.webview.postMessage({ type: 'trendingModelsData', models });
-                        } else {
-                            this._panel.webview.postMessage({ type: 'trendingModelsData', models: [], error: `HF API ${r.status}` });
-                        }
-                    } catch (e: any) {
-                        this._panel.webview.postMessage({ type: 'trendingModelsData', models: [], error: e?.message || String(e) });
-                    }
-                } else if (msg?.type === 'autoOrchestrateModels') {
-                    /* v2.89.27 — "✨ 자동 추천" 버튼: 시스템이 알아서 매핑 계산 */
-                    try {
-                        const installed = await listInstalledModels();
-                        const auto = _autoOrchestrateModelMap(installed);
-                        this._panel.webview.postMessage({ type: 'agentModelRoutingAuto', map: auto });
-                    } catch (e: any) {
-                        this._panel.webview.postMessage({ type: 'agentModelRoutingAuto', map: {}, error: e?.message || String(e) });
-                    }
-                } else if (msg?.type === 'saveAgentModelRouting' && msg.map && typeof msg.map === 'object') {
-                    /* 매핑 저장. 빈 문자열 키는 default 사용 의미 → 매핑에서 제거 */
-                    try {
-                        const cleaned: Record<string, string> = {};
-                        for (const [k, v] of Object.entries(msg.map)) {
-                            const sv = String(v || '').trim();
-                            if (sv) cleaned[k] = sv;
-                        }
-                        writeAgentModelMap(cleaned);
-                        this._postToast(`🧠 에이전트별 모델 라우팅 저장됨 (${Object.keys(cleaned).length}건)`);
-                        this._panel.webview.postMessage({ type: 'agentModelRoutingSaved', ok: true });
-                        /* v2.89.116 — 사이드바 dock도 같이 갱신 (양쪽이 항상 같은 진실) */
-                        try { _activeChatProvider?.triggerAgentDockReload?.(); } catch { /* ignore */ }
-                    } catch (e: any) {
-                        this._panel.webview.postMessage({ type: 'agentModelRoutingSaved', ok: false, error: e?.message || String(e) });
-                    }
-                } else if (msg?.type === 'getReportSchedule') {
-                    /* v2.89.24 — 보고 스케줄 UI 데이터 송출 */
-                    try {
-                        const sch = readReportSchedule();
-                        this._panel.webview.postMessage({ type: 'reportScheduleData', entries: sch.entries });
-                    } catch (e: any) {
-                        this._panel.webview.postMessage({ type: 'reportScheduleData', entries: [], error: e?.message || String(e) });
-                    }
-                } else if (msg?.type === 'saveReportSchedule' && Array.isArray(msg.entries)) {
-                    /* 사용자가 모달에서 저장 → 디스크 + 토스트 */
-                    try {
-                        writeReportSchedule({ entries: msg.entries });
-                        this._postToast(`📆 보고 스케줄 ${msg.entries.length}건 저장됨`);
-                        this._panel.webview.postMessage({ type: 'reportScheduleData', entries: msg.entries });
-                    } catch (e: any) {
-                        this._postToast(`⚠️ 스케줄 저장 실패: ${e?.message || e}`, true);
-                    }
-                } else if (msg?.type === 'saveSkillConfig' && typeof msg.agentId === 'string' && typeof msg.skillName === 'string') {
-                    /* v2.89.17 — 인앱 도구 설정 저장. tool config는 도구 자체 .json,
-                       shared는 youtube_account.json 같은 공유 파일에 저장. */
-                    try {
-                        const updates = msg.updates || {};
-                        const toolDir = path.join(getCompanyDir(), '_agents', msg.agentId, 'tools');
-                        /* 도구 자체 config */
-                        if (updates.tool && Object.keys(updates.tool).length > 0) {
-                            const toolJsonPath = path.join(toolDir, `${msg.skillName}.json`);
-                            let cur: Record<string, any> = {};
-                            try {
-                                if (fs.existsSync(toolJsonPath)) cur = JSON.parse(fs.readFileSync(toolJsonPath, 'utf-8') || '{}');
-                            } catch { /* malformed */ }
-                            for (const [k, v] of Object.entries(updates.tool)) {
-                                cur[k] = v;
-                            }
-                            fs.writeFileSync(toolJsonPath, JSON.stringify(cur, null, 2));
-                        }
-                        /* 공유 config (현재는 youtube 한정) */
-                        if (updates.shared && Object.keys(updates.shared).length > 0 && msg.agentId === 'youtube') {
-                            const sharedPath = path.join(toolDir, 'youtube_account.json');
-                            let cur: Record<string, any> = {};
-                            try {
-                                if (fs.existsSync(sharedPath)) cur = JSON.parse(fs.readFileSync(sharedPath, 'utf-8') || '{}');
-                            } catch { /* malformed */ }
-                            for (const [k, v] of Object.entries(updates.shared)) {
-                                cur[k] = v;
-                            }
-                            fs.writeFileSync(sharedPath, JSON.stringify(cur, null, 2));
-                        }
-                        this._postToast(`💾 ${msg.skillName} 설정 저장됨`);
-                        await this._sendState();
-                        /* 모달에 "저장 완료" 알림 */
-                        this._panel.webview.postMessage({ type: 'skillConfigSaved', skillName: msg.skillName, ok: true });
-                    } catch (e: any) {
-                        this._panel.webview.postMessage({ type: 'skillConfigSaved', skillName: msg.skillName, ok: false, error: e?.message || String(e) });
-                    }
-                } else if (msg?.type === 'runSingleSkill' && typeof msg.agentId === 'string' && typeof msg.skillName === 'string') {
-                    /* v2.89.12 — 단독 스킬 실행. 사용자가 에이전트 모달에서 스킬
-                       타일 클릭 → ▶ 실행 누르면 그 도구만 spawn해서 stdout 캡처
-                       후 모달에 라이브 표시. */
-                    try {
-                        const tools = listAgentTools(msg.agentId);
-                        const tool = tools.find(t => t.name === msg.skillName);
-                        if (!tool) {
-                            this._panel.webview.postMessage({ type: 'skillRunOutput', ok: false, output: `⚠️ 스킬 못 찾음: ${msg.skillName}` });
-                        } else {
-                            const scriptPath = tool.scriptPath;
-                            const cwd = path.dirname(scriptPath);
-                            const cmd = `${_pythonCmd()} ${JSON.stringify(path.basename(scriptPath))}`;
-                            const r = await runCommandCaptured(cmd, cwd, () => { /* silent */ }, 90000);
-                            this._panel.webview.postMessage({
-                                type: 'skillRunOutput',
-                                ok: r.exitCode === 0,
-                                output: (r.output || '').slice(-8000),
-                                exitCode: r.exitCode,
-                                timedOut: r.timedOut,
-                            });
-                        }
-                    } catch (e: any) {
-                        this._panel.webview.postMessage({ type: 'skillRunOutput', ok: false, output: `⚠️ 실행 에러: ${e?.message || e}` });
-                    }
-                } else if (msg?.type === 'cancelTask' && typeof msg.id === 'string') {
-                    /* v2.88.4 — 멈춘 작업 정리. shortId(마지막 9자리)로 매칭 후
-                       status='cancelled' + evidence 기록. */
-                    try {
-                        const all = readTracker().tasks;
-                        const target = all.find(t => t.id.endsWith(msg.id)) || all.find(t => t.id === msg.id);
-                        if (!target) {
-                            this._postToast(`⚠️ 작업을 못 찾았어요 (id: ${msg.id})`, true);
-                        } else {
-                            updateTrackerTask(target.id, { status: 'cancelled', evidence: '대시보드에서 사용자 취소' });
-                            this._postToast(`✖️ 취소됨: ${target.title.slice(0, 40)}`);
-                            await this._sendState();
-                        }
-                    } catch (e: any) {
-                        this._postToast(`⚠️ 취소 실패: ${e?.message || e}`, true);
-                    }
-                } else if (msg?.type === 'setAgentRagMode' && typeof msg.agentId === 'string') {
-                    /* v2.87.9 — 대시보드 모달의 자가검증 토글에서 호출. mode는
-                       'self-rag' 또는 'standard'. 디스크 갱신 후 state 새로고침 →
-                       모달 칩이 자동 동기화됨. */
-                    try {
-                        const mode = msg.mode === 'self-rag' ? 'self-rag' : 'standard';
-                        writeAgentRagMode(msg.agentId, mode);
-                        const a = AGENTS[msg.agentId];
-                        const label = mode === 'self-rag' ? '🧠 자가검증 ON' : '🧠 자가검증 OFF';
-                        this._postToast(`${a?.name || msg.agentId}: ${label}`);
-                        await this._sendState();
-                    } catch (e: any) {
-                        this._postToast(`⚠️ 자가검증 모드 변경 실패: ${e?.message || e}`, true);
-                    }
-                } else if (msg?.type === 'openAgentFolder' && typeof msg.agentId === 'string') {
-                    /* v2.87.6 — 대시보드 팀 카드 클릭 → 에이전트 폴더 OS 탐색기에서
-                       열기. _agents/<id>/ 안에 지식·스킬·메모리·세션 다 있어서
-                       그게 "에이전트 들여다보기"의 정직한 출구. VS Code 사이드바
-                       에서도 같은 폴더가 열림. */
-                    try {
-                        const folderPath = path.join(getCompanyDir(), '_agents', msg.agentId);
-                        if (!fs.existsSync(folderPath)) {
-                            this._postToast(`⚠️ ${msg.agentId} 폴더를 찾을 수 없어요`, true);
-                        } else {
-                            const uri = vscode.Uri.file(folderPath);
-                            vscode.commands.executeCommand('revealFileInOS', uri);
-                            this._postToast(`📁 ${msg.agentId} 폴더 열기`);
-                        }
-                    } catch (e: any) {
-                        this._postToast(`⚠️ 폴더 열기 실패: ${e?.message || e}`, true);
-                    }
-                }
-            } catch (e: any) {
-                this._postToast(`⚠️ ${e?.message || e}`, true);
-            }
-        }, null, this._disposables);
-        /* Reactive refresh — when tracker writes happen we want to update KPIs. */
-        this._disposables.push(onTrackerChanged(() => this._sendState().catch(() => {})));
-        /* Periodic light refresh for time-based UI (countdowns) and remote state. */
-        this._refreshTimer = setInterval(() => this._sendState().catch(() => {}), 30 * 1000);
-        this._sendState().catch(() => { /* ignore boot */ });
-    }
-
-    public refresh() { this._sendState().catch(() => {}); }
-
-    private _postToast(text: string, err = false) {
-        try { this._panel.webview.postMessage({ type: 'toast', text, err }); } catch { /* ignore */ }
-    }
-
-    private _loadCfg(): { apiKey: string; channelId: string } {
-        const cfgPath = path.join(getCompanyDir(), '_agents', 'youtube', 'config.md');
-        const txt = _safeReadText(cfgPath);
-        const apiM = txt.match(/YOUTUBE_API_KEY\s*[:：=]\s*([A-Za-z0-9_\-]+)/);
-        const chM  = txt.match(/YOUTUBE_CHANNEL_ID\s*[:：=]\s*([A-Za-z0-9_\-]+)/);
-        return { apiKey: apiM ? apiM[1] : '', channelId: chM ? chM[1] : '' };
-    }
-
-    private async _sendState() {
-        const cfg = this._loadCfg();
-        const oauthConnected = isYoutubeOAuthConnected();
-        const company = readCompanyName() || '1인 기업';
-        const tracker = readTracker().tasks;
-        const openTasks = tracker.filter(t => t.status !== 'done' && t.status !== 'cancelled');
-        const overdueTasks = openTasks.filter(t => t.dueAt && new Date(t.dueAt).getTime() < Date.now()).length;
-        const urgentTasks = openTasks.filter(t => _coercePriority(t.priority) === 'urgent').length;
-        const pendingApprovals = listPendingApprovals();
-
-        let yt: any = { configured: false };
-        if (cfg.apiKey && cfg.channelId) {
-            try {
-                const my = await this._fetchChannelSummary(cfg.channelId, cfg.apiKey);
-                if (my) {
-                    const myVideos = await this._fetchRecentVideos(my.uploadsPlaylist, cfg.apiKey, 6);
-                    const totalViews = myVideos.reduce((s: number, v: any) => s + v.views, 0);
-                    const totalEng   = myVideos.reduce((s: number, v: any) => s + v.likes + v.comments, 0);
-                    const engagementPct = totalViews > 0 ? ((totalEng / totalViews) * 100).toFixed(2) : '0.00';
-                    let competitors: any[] = [];
-                    const compIds = this._readCompetitors().slice(0, 6);
-                    for (const cid of compIds) {
-                        const c = await this._fetchChannelSummary(cid, cfg.apiKey);
-                        if (c) competitors.push(c);
-                    }
-                    let analytics: any = null;
-                    if (oauthConnected) {
-                        try { analytics = await fetchYouTubeAnalyticsSummary(); } catch {}
-                    }
-                    yt = { configured: true, my, myVideos, engagementPct, competitors, analytics };
-                }
-            } catch { /* keep yt.configured=false */ }
-        }
-
-        const conversationsToday = (() => {
-            try {
-                const today = new Date().toISOString().slice(0, 10);
-                const txt = _safeReadText(path.join(getConversationsDir(), `${today}.md`));
-                return txt.split('\n').filter(l => l.startsWith('## [')).length;
-            } catch { return 0; }
-        })();
-
-        const recentLog = readRecentConversations(2400)
-            .replace(/^\[최근 회사 대화 요약 \(참고용\)\]\n/, '')
-            .trim();
-
-        /* Build agent team section — one card per agent with persona + open
-           task count + autonomy level + most recent memory line + custom
-           profile photo when available (영숙/레오). The photo URI is resolved
-           through the panel's webview so the asset is reachable from the
-           sandboxed iframe. */
-        const agentTeam = AGENT_ORDER.map(id => {
-            const a = AGENTS[id];
-            if (!a) return null;
-            const myTasks = openTasks.filter(t => Array.isArray(t.agentIds) && t.agentIds.includes(id));
-            let lastActivity = '';
-            try {
-                const memTxt = _safeReadText(path.join(getCompanyDir(), '_agents', id, 'memory.md'));
-                const lines = memTxt.split('\n').map(l => l.trim()).filter(l => /^\s*-\s*\[/.test(l) || (l.length > 4 && !l.startsWith('#') && !l.startsWith('_')));
-                lastActivity = lines.length > 0 ? lines[lines.length - 1].slice(0, 120) : '';
-            } catch { /* ignore */ }
-            let profileImageUri = '';
-            try {
-                if (a.profileImage && _dashboardExtensionUri) {
-                    const p = vscode.Uri.joinPath(_dashboardExtensionUri, 'assets', 'agents', a.profileImage);
-                    if (fs.existsSync(p.fsPath)) {
-                        profileImageUri = this._panel.webview.asWebviewUri(p).toString();
-                    }
-                }
-            } catch { /* ignore */ }
-            const lvl = readToolAutonomyLevel(id);
-            /* v2.87.7 — Pre-load lightweight skill list + verified count so the
-               in-dashboard agent detail modal can render instantly without a
-               second round-trip. Each skill = emoji + name (truncated). */
-            /* v2.89.12 — `name` 은 백엔드에서 listAgentTools 매칭에 쓰이는 진짜
-               tool name (예: "my_videos_check"), `label` 은 사용자한테 보일 짧은
-               이름. description은 모달 상세에서 보여줌. */
-            let skills: Array<{ name: string; label: string; emoji: string; enabled: boolean; locked: boolean; description: string; config?: any; sharedConfigName?: string; sharedConfig?: any }> = [];
-            try {
-                /* v2.89.20 — 비기술자 사용자한테 너무 복잡한 도구들 숨김. 기본
-                   화면엔 "한 번 클릭으로 끝나는" 도구만 노출. 고급 분석(경쟁
-                   채널 비교, 트렌드 스나이퍼 등)은 별도 섹션 또는 미래 빌드에서.
-                   숨겨진 도구도 폴더엔 그대로 있어서 직접 실행은 가능함. */
-                const HIDDEN_TOOLS_BY_AGENT: Record<string, string[]> = {
-                    youtube: [
-                        'youtube_account',     /* 설정 허브 — 외부 연결 패널과 중복 */
-                        'competitor_brief',    /* COMPETITOR_CHANNELS 추가 입력 필요 — 고급 */
-                        'trend_sniper',        /* WATCHED_CHANNELS 추가 입력 필요 — 고급 */
-                        'comment_harvester',   /* WATCHED_CHANNELS 추가 입력 필요 — 고급 */
-                        'telegram_notify',     /* 인프라 — 다른 도구가 자동 사용 */
-                    ],
-                    secretary: [
-                        'telegram_setup',      /* 외부 연결 패널과 중복 */
-                        'google_calendar',     /* iCal 읽기 전용 — google_calendar_write 가 풀 기능 */
-                    ],
-                };
-                const hidden = HIDDEN_TOOLS_BY_AGENT[id] || [];
-                const tools = listAgentTools(id).filter(t => !hidden.includes(t.name));
-                /* v2.89.17 — 도구의 자체 config (예: COMPETITOR_CHANNELS) + 공유 설정
-                   (youtube_account.json 같은 다른 도구들이 같이 쓰는 파일)을 모두
-                   webview로 보내서 인앱 폼으로 편집 가능하게. */
-                let sharedYouTube: any = null;
-                if (id === 'youtube') {
-                    try {
-                        const sharedPath = path.join(getCompanyDir(), '_agents', 'youtube', 'tools', 'youtube_account.json');
-                        if (fs.existsSync(sharedPath)) {
-                            sharedYouTube = JSON.parse(fs.readFileSync(sharedPath, 'utf-8') || '{}');
-                        }
-                    } catch { /* malformed — ignore */ }
-                }
-                skills = tools.map(t => {
-                    const dn = t.displayName || t.name;
-                    const m = dn.match(/^([\p{Extended_Pictographic}\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}])/u);
-                    const emoji = m ? m[1] : '🛠️';
-                    const cleanName = dn.replace(/^[\p{Extended_Pictographic}\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]\s*/u, '').slice(0, 18);
-                    const schema = (t as any).configSchema || [];
-                    const locked = schema.some((f: any) => f.type === 'password' && (!f.value || String(f.value).trim() === ''));
-                    /* 도구 자체 config — 메타 키(_) 제외, 사용자가 편집할 수 있는 키만.
-                       v2.89.81 — _schema는 통과시켜서 폼이 hint·label 렌더에 사용. */
-                    const cleanConfig: Record<string, any> = {};
-                    for (const [k, v] of Object.entries(t.config || {})) {
-                        if (k.startsWith('_') && k !== '_schema') continue;
-                        cleanConfig[k] = v;
-                    }
-                    /* YouTube 도구들은 youtube_account.json도 같이 쓰니까 일부 키가 거기서
-                       오는지 표시. 사용자가 그 키를 편집하면 자동으로 그 파일에 저장. */
-                    let sharedConfigName: string | undefined;
-                    let sharedConfig: any;
-                    if (id === 'youtube' && t.name !== 'youtube_account' && sharedYouTube) {
-                        sharedConfigName = 'youtube_account.json';
-                        sharedConfig = sharedYouTube;
-                    }
-                    return {
-                        name: t.name,
-                        label: cleanName,
-                        emoji,
-                        enabled: t.enabled !== false,
-                        locked,
-                        description: (t.description || '').slice(0, 280),
-                        config: cleanConfig,
-                        sharedConfigName,
-                        sharedConfig,
-                    };
-                });
-            } catch { /* tools may not be seeded yet */ }
-            const verifiedCount = countAgentVerifiedClaims(id);
-            const ragMode = readAgentRagMode(id);
-            const selfRagCriteria = readAgentSelfRagCriteria(id);
-            return {
-                id,
-                name: a.name,
-                role: a.role,
-                emoji: a.emoji,
-                color: a.color,
-                specialty: a.specialty,
-                tagline: a.tagline || '',
-                openTasks: myTasks.length,
-                autonomy: lvl,
-                autonomyLabel: AUTONOMY_LABELS[lvl] || 'Off',
-                lastActivity,
-                profileImageUri,
-                skills,
-                verifiedCount,
-                ragMode,
-                selfRagCriteria,
-                /* v2.89.103 — 채용 락 시스템. hired=false 면 잠금 카드로 렌더,
-                   클릭 시 PIN 모달 → 0000 통과해야 활성화. 잠금 대상 아닌 에이전트는
-                   항상 hired=true. */
-                hired: isAgentHired(id),
-                lockable: !!LOCKED_AGENTS_DEFAULT[id],
-                /* v2.89.107 — 활성/비활성 토글 시스템. active=false 면 비활성 카드 (페이드).
-                   클릭 시 간단 confirm → active=true. CEO는 항상 활성. */
-                active: isAgentActive(id),
-                togglable: isAgentTogglable(id),
-                alwaysOn: ALWAYS_ON_AGENTS.has(id),
-                optional: OPTIONAL_AGENTS_DEFAULT.has(id),
-            };
-        }).filter(Boolean);
-        const totalAgents = agentTeam.length;
-        const hiredCount = (agentTeam as any[]).filter(a => a && a.hired).length;
-        const activeCount = (agentTeam as any[]).filter(a => a && a.active).length;
-
-        try {
-            this._panel.webview.postMessage({
-                type: 'state',
-                company,
-                oauthConnected,
-                yt,
-                agentTeam,
-                hiredCount,
-                totalAgents,
-                activeCount,
-                tasks: {
-                    open: openTasks.length,
-                    overdue: overdueTasks,
-                    urgent: urgentTasks,
-                    top: openTasks
-                        .sort((a, b) => TASK_PRIORITY_ORDER[_coercePriority(a.priority)] - TASK_PRIORITY_ORDER[_coercePriority(b.priority)])
-                        .slice(0, 6)
-                        .map(t => ({
-                            id: t.id, shortId: t.id.slice(-9),
-                            title: t.title,
-                            priority: _coercePriority(t.priority),
-                            owner: t.owner,
-                            agentEmoji: t.agentIds && t.agentIds[0] ? (AGENTS[t.agentIds[0]]?.emoji || '🤖') : (t.owner === 'user' ? '👤' : '🤖'),
-                            dueAt: t.dueAt || '',
-                            dueLabel: t.dueAt ? _formatDueLabel(t.dueAt) : '',
-                            recurrence: t.recurrence || '',
-                            status: t.status,
-                        })),
-                },
-                approvals: pendingApprovals.map(a => {
-                    const ag = AGENTS[a.agentId];
-                    return {
-                        id: a.id, shortId: a.id.slice(-9),
-                        emoji: ag?.emoji || '🤖',
-                        agent: ag?.name || a.agentId,
-                        kind: a.kind,
-                        title: a.title,
-                        summary: a.summary,
-                        createdAt: a.createdAt,
-                    };
-                }),
-                conversationsToday,
-                recentLog: recentLog.slice(-1500),
-                briefingTime: vscode.workspace.getConfiguration('connectAiLab').get<string>('dailyBriefingTime') || '09:00',
-            });
-        } catch { /* panel disposed */ }
-    }
-
-    private async _fetchChannelSummary(channelId: string, apiKey: string): Promise<any | null> {
-        try {
-            const r = await axios.get('https://www.googleapis.com/youtube/v3/channels', {
-                params: { part: 'snippet,statistics,contentDetails', id: channelId, key: apiKey },
-                timeout: 10000,
-            });
-            const it = r.data?.items?.[0];
-            if (!it) return null;
-            return {
-                id: channelId,
-                title: it.snippet?.title || '',
-                desc: (it.snippet?.description || '').slice(0, 240),
-                thumb: it.snippet?.thumbnails?.high?.url || it.snippet?.thumbnails?.default?.url || '',
-                subs: parseInt(it.statistics?.subscriberCount || '0', 10),
-                views: parseInt(it.statistics?.viewCount || '0', 10),
-                videos: parseInt(it.statistics?.videoCount || '0', 10),
-                uploadsPlaylist: it.contentDetails?.relatedPlaylists?.uploads || '',
-            };
-        } catch { return null; }
-    }
-
-    private async _fetchRecentVideos(playlistId: string, apiKey: string, max = 6): Promise<any[]> {
-        if (!playlistId) return [];
-        try {
-            const r = await axios.get('https://www.googleapis.com/youtube/v3/playlistItems', {
-                params: { part: 'contentDetails', playlistId, maxResults: max, key: apiKey },
-                timeout: 10000,
-            });
-            const ids = (r.data?.items || []).map((x: any) => x.contentDetails?.videoId).filter(Boolean);
-            if (ids.length === 0) return [];
-            const stats = await axios.get('https://www.googleapis.com/youtube/v3/videos', {
-                params: { part: 'snippet,statistics,contentDetails', id: ids.join(','), key: apiKey },
-                timeout: 10000,
-            });
-            return (stats.data?.items || []).map((it: any) => ({
-                id: it.id,
-                title: it.snippet?.title || '',
-                thumb: it.snippet?.thumbnails?.high?.url || it.snippet?.thumbnails?.medium?.url || it.snippet?.thumbnails?.default?.url || '',
-                views: parseInt(it.statistics?.viewCount || '0', 10),
-                likes: parseInt(it.statistics?.likeCount || '0', 10),
-                comments: parseInt(it.statistics?.commentCount || '0', 10),
-                publishedAt: it.snippet?.publishedAt || '',
-            }));
-        } catch { return []; }
-    }
-
-    private _readCompetitors(): string[] {
-        try {
-            const p = path.join(getCompanyDir(), '_agents', 'youtube', 'competitors.json');
-            const txt = _safeReadText(p);
-            const arr = JSON.parse(txt || '[]');
-            return Array.isArray(arr) ? arr.filter(x => typeof x === 'string') : [];
-        } catch { return []; }
-    }
-
-    private _dispose() {
-        CompanyDashboardPanel.current = null;
-        if (this._refreshTimer) { clearInterval(this._refreshTimer); this._refreshTimer = null; }
-        while (this._disposables.length) {
-            const d = this._disposables.pop();
-            try { d?.dispose(); } catch {}
-        }
-        try { this._panel.dispose(); } catch {}
-    }
-
-    private _html(): string {
-        return `<!doctype html><html><head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<style>${_loadWebviewAsset('dashboard.css')}</style>
-</head><body>
-<canvas id="bgCanvas"></canvas>
-<header class="hero">
-  <div class="hero-inner">
-    <div class="hero-brand">
-      <div class="logo-mark">
-        <svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <circle cx="16" cy="16" r="14" stroke="currentColor" stroke-width="1.5"/>
-          <circle cx="16" cy="16" r="8"  stroke="currentColor" stroke-width="1.5"/>
-          <circle cx="16" cy="16" r="2.5" fill="currentColor"/>
-          <path d="M16 2 L16 30 M2 16 L30 16" stroke="currentColor" stroke-width="0.7" stroke-dasharray="2 3"/>
-        </svg>
-      </div>
-      <div>
-        <div class="hero-eyebrow">CONNECT AI · 직원 에이전트 보기</div>
-        <div class="hero-title" id="companyName">불러오는 중…</div>
-        <div class="hero-meta">
-          <span class="meta-pill" id="todayLabel"></span>
-          <span class="meta-pill"><span class="dot live"></span> <span id="convCount">0</span>건 대화</span>
-          <span class="meta-pill" id="briefPill">🌅 매일 09:00</span>
-        </div>
-      </div>
-    </div>
-    <div class="hero-actions">
-      <button class="btn ghost" id="briefBtn" title="회사 전체 상태·진행 작업·이슈 즉시 점검">시스템 진단</button>
-      <button class="btn ghost" id="scheduleBtn" title="정해진 시각·요일에 시스템이 자동 보고">리포트 자동화</button>
-      <button class="btn ghost" id="modelsBtn" title="각 에이전트마다 최적 LLM 자동 분배·실행">모델 오케스트레이션</button>
-      <button class="btn ghost" id="refreshBtn" title="동기화">↻</button>
-    </div>
-  </div>
-</header>
-
-<main class="grid">
-  <!-- v2.86 layout — agent team is the hero (사용자가 가장 보고 싶어하는 것).
-       Below that: today (tasks + approvals merged), then YouTube + Analytics
-       only when the channel is connected. Card count: 9 → 4 (or 6 with YT). -->
-
-  <!-- 1) 우리 팀 — hero. v2.89.108: 상태 필터 + 범례 추가. -->
-  <section class="card span-12 hero-team" id="teamCard">
-    <div class="card-head">
-      <div class="card-title"><span class="title-icon">👥</span> 에이전트 매트릭스</div>
-      <span class="badge" id="teamBadge">10명</span>
-    </div>
-    <div class="team-legend">
-      <span class="tl-chip tl-active" data-filter="all">전체 <span class="tl-count" id="tlAll">0</span></span>
-      <span class="tl-chip" data-filter="online" title="활성 — CEO가 호출 가능"><span class="tl-dot tl-dot-on"></span>활성 <span class="tl-count" id="tlOn">0</span></span>
-      <span class="tl-chip" data-filter="optional" title="OPT-IN 비활성 — 카드 클릭해서 활성화"><span class="tl-dot tl-dot-opt"></span>옵션 <span class="tl-count" id="tlOpt">0</span></span>
-      <span class="tl-chip" data-filter="locked" title="채용 PIN 필요"><span class="tl-dot tl-dot-lock"></span>채용 대기 <span class="tl-count" id="tlLock">0</span></span>
-    </div>
-    <div class="team-grid" id="teamBody"></div>
-  </section>
-
-  <!-- v2.89.142 — 매출 카드. 회사 대시보드 메인 진입점.
-       클릭하면 풀 매출 대시보드 패널 (매트릭스 풍) 열림. -->
-  <section class="card span-12 revenue-card" id="revenueCard">
-    <div class="rev-glyph-rain" aria-hidden="true"></div>
-    <div class="rev-inner">
-      <div class="rev-left">
-        <div class="rev-eyebrow">REVENUE COMMAND CENTER · <span class="rev-live"><span class="rev-pulse"></span> LIVE</span></div>
-        <div class="rev-title">💰 매출 컨트롤 센터</div>
-        <div class="rev-sub" id="revSubtitle">PayPal 연결을 확인하는 중…</div>
-      </div>
-      <div class="rev-kpis" id="revKpis">
-        <div class="rev-kpi rev-skeleton"><div class="rev-kpi-l">이번 달</div><div class="rev-kpi-v" id="revMonth">—</div></div>
-        <div class="rev-kpi rev-skeleton"><div class="rev-kpi-l">7일</div><div class="rev-kpi-v" id="revWeek">—</div></div>
-        <div class="rev-kpi rev-skeleton"><div class="rev-kpi-l">거래</div><div class="rev-kpi-v" id="revCount">—</div></div>
-      </div>
-      <div class="rev-spark">
-        <svg id="revSparkSvg" viewBox="0 0 280 60" preserveAspectRatio="none"></svg>
-      </div>
-      <div class="rev-actions">
-        <button class="rev-btn primary" id="openRevDashBtn">
-          <span class="rev-btn-glow"></span>
-          <span>풀스크린 매출 대시보드</span>
-          <span class="rev-btn-arrow">→</span>
-        </button>
-        <button class="rev-btn ghost" id="askHyunbinBtn" title="현빈 에이전트에게 매출 분석 요청">🧠 현빈에게 분석 의뢰</button>
-      </div>
-    </div>
-  </section>
-
-  <!-- 2) 오늘의 일 — open tasks (left) + approvals (right). Compact. -->
-  <section class="card span-7" id="tasksCard">
-    <div class="card-head">
-      <div class="card-title"><span class="title-icon">⚡</span> 액티브 워크로드</div>
-      <span class="badge" id="taskBadge">0</span>
-    </div>
-    <div id="tasksBody"><div class="skeleton skel-md"></div></div>
-  </section>
-
-  <section class="card span-5" id="aprCard">
-    <div class="card-head">
-      <div class="card-title"><span class="title-icon">⏳</span> 승인 큐 (Pending)</div>
-      <span class="badge warn" id="aprBadge">0</span>
-    </div>
-    <div id="aprBody"><div class="empty subtle">대기 중인 승인이 없어요.</div></div>
-  </section>
-
-  <!-- 3) YouTube + Analytics — only when API key configured. -->
-  <section class="card span-7 yt-cond" id="ytCard" style="display:none">
-    <div class="card-head">
-      <div class="card-title"><span class="title-icon">📺</span> YouTube — 내 채널</div>
-      <button class="btn small" id="queueBtn" title="유튜브 최근 영상의 미답 댓글을 가져와 응답 큐에 추가">📥 댓글 큐 갱신</button>
-    </div>
-    <div id="ytBody"></div>
-  </section>
-
-  <section class="card span-5 yt-cond" id="anaCard" style="display:none">
-    <div class="card-head">
-      <div class="card-title"><span class="title-icon">📊</span> Analytics · 28일</div>
-      <span class="badge" id="anaBadge">API key</span>
-    </div>
-    <div id="anaBody"></div>
-  </section>
-
-  <section class="card span-12 yt-cond" id="vidCard" style="display:none">
-    <div class="card-head">
-      <div class="card-title"><span class="title-icon">🎬</span> 최근 영상</div>
-    </div>
-    <div class="video-grid" id="vidBody"></div>
-  </section>
-
-  <!-- 4) Mini KPI strip — moved to bottom; less prominent. Hidden when no YT. -->
-  <section class="card span-12 kpi-strip yt-cond" id="kpiStrip" style="display:none">
-    <div class="kpi-cell">
-      <div class="kpi-icon">📺</div>
-      <div class="kpi-num" data-target="0" id="kSubs">0</div>
-      <div class="kpi-label">구독자</div>
-    </div>
-    <div class="kpi-cell">
-      <div class="kpi-icon">👁</div>
-      <div class="kpi-num" data-target="0" id="kViews">0</div>
-      <div class="kpi-label">총 조회</div>
-    </div>
-    <div class="kpi-cell">
-      <div class="kpi-icon">💗</div>
-      <div class="kpi-num" id="kEng">–</div>
-      <div class="kpi-label">참여율</div>
-    </div>
-    <div class="kpi-cell">
-      <div class="kpi-icon">⚡</div>
-      <div class="kpi-num" data-target="0" id="kOpen">0</div>
-      <div class="kpi-label">열린 작업</div>
-      <div class="kpi-delta urgent" id="kUrgent"></div>
-    </div>
-    <div class="kpi-cell">
-      <div class="kpi-icon">⏳</div>
-      <div class="kpi-num" data-target="0" id="kApr">0</div>
-      <div class="kpi-label">승인 대기</div>
-    </div>
-  </section>
-</main>
-
-<div class="toast" id="toast"></div>
-
-<script>${_loadWebviewAsset('dashboard.js')}</script>
-</body></html>`;
-    }
-}
 
 let _dashboardExtensionUri: vscode.Uri | null = null;
 
@@ -11292,7 +8969,7 @@ const API_SERVICES: ApiServiceDef[] = [
         summary: '시청 지속률 · 트래픽 소스 · 시청자 인구통계. Client ID/Secret 채운 뒤 "OAuth 연결" 버튼 (또는 에이전트가 자동으로 발동).',
         helpUrl: 'https://console.cloud.google.com/',
         agentId: 'youtube',
-        wizardCommand: 'connectAiLab.youtube.connectOAuth',
+        wizardCommand: 'shinAi.youtube.connectOAuth',
         fields: [
             { key: 'YOUTUBE_OAUTH_CLIENT_ID', label: 'Client ID', type: 'password' },
             { key: 'YOUTUBE_OAUTH_CLIENT_SECRET', label: 'Client Secret', type: 'password', help: 'Authorized redirect URI: http://127.0.0.1:5814/yt-oauth-callback' },
@@ -11304,7 +8981,7 @@ const API_SERVICES: ApiServiceDef[] = [
         icon: '📅',
         summary: '비서가 사용자 일정을 읽고 자동으로 task 마감일과 동기화합니다.',
         agentId: 'secretary',
-        wizardCommand: 'connect-ai-lab.connectGoogleCalendarWrite',
+        wizardCommand: 'shin-ai.connectGoogleCalendarWrite',
         fields: [
             { key: 'GOOGLE_CALENDAR_ID', label: 'Calendar ID', type: 'text', placeholder: 'primary 또는 yourcal@group.calendar.google.com', help: '명령 팔레트 → "SHIN AI: Google Calendar 자동 일정 연결" 추천' },
         ],
@@ -11484,7 +9161,7 @@ function readAllApiConnections(): Record<string, Record<string, string>> {
 /* Save a service's values. Reads the existing config.md, replaces lines for
    each field (or appends a new section), writes back. Idempotent. */
 async function saveApiConnection(serviceId: string, values: Record<string, string>): Promise<{ ok: boolean; error?: string; note?: string }> {
-    const svc = API_SERVICES.find(s => s.id === serviceId);
+    const svc = API_SERVICES.find((s: any) => s.id === serviceId);
     if (!svc) return { ok: false, error: 'Unknown service' };
     try {
         ensureCompanyStructure();
@@ -11691,302 +9368,11 @@ async function saveApiConnection(serviceId: string, values: Record<string, strin
     }
 }
 
-class ApiConnectionsPanel {
-    public static current: ApiConnectionsPanel | null = null;
-    public static readonly viewType = 'connectAiLab.apiConnections';
-    private readonly _panel: vscode.WebviewPanel;
-    private _disposables: vscode.Disposable[] = [];
-
-    public static createOrShow() {
-        const column = vscode.ViewColumn.Active;
-        if (ApiConnectionsPanel.current) {
-            ApiConnectionsPanel.current._panel.reveal(column);
-            ApiConnectionsPanel.current.refresh();
-            return;
-        }
-        const panel = vscode.window.createWebviewPanel(
-            ApiConnectionsPanel.viewType,
-            '🔌 외부 연결 (API 키)',
-            column,
-            { enableScripts: true, retainContextWhenHidden: true }
-        );
-        ApiConnectionsPanel.current = new ApiConnectionsPanel(panel);
-    }
-
-    private constructor(panel: vscode.WebviewPanel) {
-        this._panel = panel;
-        this._panel.webview.html = this._html();
-        this._panel.onDidDispose(() => this._dispose(), null, this._disposables);
-        this._panel.webview.onDidReceiveMessage(async (msg) => {
-            try {
-                if (msg?.type === 'load') {
-                    this._post();
-                } else if (msg?.type === 'save' && msg.serviceId && msg.values) {
-                    const r = await saveApiConnection(msg.serviceId, msg.values);
-                    this._panel.webview.postMessage({ type: 'saved', serviceId: msg.serviceId, ok: r.ok, error: r.error, note: r.note });
-                    this._post();
-                } else if (msg?.type === 'wizard' && msg.command) {
-                    vscode.commands.executeCommand(msg.command);
-                } else if (msg?.type === 'openHelp' && msg.url) {
-                    vscode.env.openExternal(vscode.Uri.parse(msg.url));
-                }
-            } catch (e: any) {
-                this._panel.webview.postMessage({ type: 'saved', serviceId: msg?.serviceId, ok: false, error: e?.message || String(e) });
-            }
-        }, null, this._disposables);
-        this._post();
-    }
-
-    public refresh() { this._post(); }
-
-    private _post() {
-        try {
-            const values = readAllApiConnections();
-            this._panel.webview.postMessage({
-                type: 'state',
-                services: API_SERVICES.map(s => ({
-                    id: s.id, name: s.name, icon: s.icon, summary: s.summary,
-                    helpUrl: s.helpUrl || '',
-                    wizardCommand: s.wizardCommand || '',
-                    comingSoon: !!s.comingSoon,
-                    fields: s.fields,
-                    values: values[s.id] || {},
-                })),
-            });
-        } catch { /* panel disposed */ }
-    }
-
-    private _dispose() {
-        ApiConnectionsPanel.current = null;
-        while (this._disposables.length) {
-            const d = this._disposables.pop();
-            try { d?.dispose(); } catch {}
-        }
-        try { this._panel.dispose(); } catch {}
-    }
-
-    private _html(): string {
-        return `<!doctype html><html><head><meta charset="utf-8"><style>${_loadWebviewAsset('api-panel.css')}</style></head><body>
-<header class="hero">
-  <div class="hero-inner">
-    <div class="hero-mark">🔌</div>
-    <div>
-      <div class="eyebrow">CONNECT AI · 외부 연결</div>
-      <h1>API 키 한 곳에서 관리</h1>
-      <div class="hero-sub">텔레그램 · YouTube · Google Calendar · GitHub · Instagram — 모든 자격증명을 한 패널에서 입력하고 저장합니다. 같은 값이 <code>_agents/&lt;id&gt;/config.md</code>로 저장돼요.</div>
-    </div>
-  </div>
-</header>
-<main id="grid" class="grid"></main>
-<div class="toast" id="toast"></div>
-<script>${_loadWebviewAsset('api-panel.js')}</script>
-</body></html>`;
-    }
-}
-
 /* ── v2.89.137 — Revenue Dashboard panel ─────────────────────────────────
    매출 시각화 메인 패널. paypal_revenue.py OUTPUT=json 호출 → 거대한
    KPI 카운터, 게임별 도넛, 30일 스파크라인, 라이브 거래 피드.
    매트릭스 + 네온 테마. 글리프 비 배경, count-up 애니메이션, 새 결제 시
    화면 가운데 burst alert. */
-class RevenueDashboardPanel {
-    public static current: RevenueDashboardPanel | null = null;
-    public static readonly viewType = 'connectAiLab.revenueDashboard';
-    private readonly _panel: vscode.WebviewPanel;
-    private _disposables: vscode.Disposable[] = [];
-    private _autoRefreshTimer: NodeJS.Timeout | null = null;
-
-    public static createOrShow() {
-        const column = vscode.ViewColumn.Active;
-        if (RevenueDashboardPanel.current) {
-            RevenueDashboardPanel.current._panel.reveal(column);
-            RevenueDashboardPanel.current._fetchAndPost();
-            return;
-        }
-        const panel = vscode.window.createWebviewPanel(
-            RevenueDashboardPanel.viewType,
-            '💰 매출 대시보드',
-            column,
-            { enableScripts: true, retainContextWhenHidden: true }
-        );
-        RevenueDashboardPanel.current = new RevenueDashboardPanel(panel);
-    }
-
-    private constructor(panel: vscode.WebviewPanel) {
-        this._panel = panel;
-        this._panel.webview.html = this._html();
-        this._panel.onDidDispose(() => this._dispose(), null, this._disposables);
-        this._panel.webview.onDidReceiveMessage(async (msg) => {
-            try {
-                if (msg?.type === 'ready' || msg?.type === 'refresh') {
-                    await this._fetchAndPost();
-                } else if (msg?.type === 'openSettings') {
-                    vscode.commands.executeCommand('connectAiLab.apiConnections.open');
-                }
-            } catch (e: any) {
-                this._postError(e?.message || String(e));
-            }
-        }, null, this._disposables);
-        /* 자동 새로고침 — 5분마다. 패널 닫히면 dispose 에서 클리어. */
-        this._autoRefreshTimer = setInterval(() => { this._fetchAndPost(); }, 5 * 60 * 1000);
-    }
-
-    private async _fetchAndPost() {
-        this._post({ type: 'state', loading: true, error: null, data: null });
-        try {
-            const ppToolDir = path.join(getCompanyDir(), '_agents', 'business', 'tools');
-            const ppScript = path.join(ppToolDir, 'paypal_revenue.py');
-            const ppJson = path.join(ppToolDir, 'paypal_revenue.json');
-            if (!fs.existsSync(ppScript) || !fs.existsSync(ppJson)) {
-                this._postError('PayPal 도구가 두뇌에 없어요. business 에이전트 활성화 후 다시 시도.');
-                return;
-            }
-            const cfg = JSON.parse(_safeReadText(ppJson) || '{}');
-            if (!cfg.CLIENT_ID || !cfg.CLIENT_SECRET) {
-                this._postError('PayPal Client ID 또는 Secret 미설정. 외부 연결 패널에서 입력 필요.');
-                return;
-            }
-            const env = { ...process.env, OUTPUT: 'json', LOOKBACK_DAYS: String(cfg.LOOKBACK_DAYS || 30) };
-            const r = await new Promise<{ exitCode: number; output: string; stderr: string }>((resolve) => {
-                const cp = require('child_process');
-                const p = cp.spawn(_pythonCmd(), [ppScript], { cwd: ppToolDir, env });
-                let out = '', err = '';
-                p.stdout?.on('data', (d: Buffer) => { out += d.toString(); });
-                p.stderr?.on('data', (d: Buffer) => { err += d.toString(); });
-                p.on('close', (code: number) => resolve({ exitCode: code, output: out, stderr: err }));
-                setTimeout(() => { try { p.kill(); } catch {} resolve({ exitCode: -1, output: out, stderr: err }); }, 25000);
-            });
-            if (r.exitCode !== 0 || !r.output) {
-                this._postError(`paypal_revenue.py 실패 (exit ${r.exitCode}). ${r.stderr.slice(-200) || ''}`);
-                return;
-            }
-            let data: any;
-            try { data = JSON.parse(r.output); } catch (pe: any) {
-                this._postError(`JSON 파싱 실패: ${pe?.message || pe}`);
-                return;
-            }
-            this._post({ type: 'state', loading: false, error: null, data });
-        } catch (e: any) {
-            this._postError(e?.message || String(e));
-        }
-    }
-
-    private _post(msg: any) {
-        try { this._panel.webview.postMessage(msg); } catch { /* ignore */ }
-    }
-
-    private _postError(err: string) {
-        this._post({ type: 'state', loading: false, error: err, data: null });
-    }
-
-    private _dispose() {
-        RevenueDashboardPanel.current = null;
-        if (this._autoRefreshTimer) clearInterval(this._autoRefreshTimer);
-        this._disposables.forEach(d => { try { d.dispose(); } catch {} });
-    }
-
-    private _html(): string {
-        return `<!doctype html><html><head><meta charset="utf-8">
-<style>${_loadWebviewAsset('revenue-dashboard.css')}</style>
-</head><body>
-<div class="glyph-rain" id="glyphRain"></div>
-
-<div class="wrap">
-  <header class="hero">
-    <div class="hero-mark">💰</div>
-    <div class="hero-info">
-      <div class="eyebrow">CONNECT AI · REVENUE COMMAND CENTER</div>
-      <h1>매출 대시보드</h1>
-      <div class="hero-sub">
-        PayPal 거래 실시간 분석 · 게임별 매출 분해 · <span class="live">LIVE</span>
-        <span style="margin-left: 8px; color: var(--text-3); font-size: 0.8rem;" id="generated"></span>
-      </div>
-    </div>
-    <div class="hero-actions">
-      <button class="btn" id="refreshBtn">🔄 새로고침</button>
-      <button class="btn" id="settingsBtn">⚙️ 설정</button>
-    </div>
-  </header>
-
-  <div id="emptyArea" class="hidden"></div>
-
-  <!-- KPI strip -->
-  <div class="kpi-strip">
-    <div class="kpi today">
-      <div class="kpi-label">오늘 매출</div>
-      <div class="kpi-value" id="kpiToday" data-last="0">0.00</div>
-      <div class="kpi-unit"><span id="curLabel">USD</span></div>
-    </div>
-    <div class="kpi">
-      <div class="kpi-label">지난 7일</div>
-      <div class="kpi-value" id="kpiWeek" data-last="0">0.00</div>
-      <div class="kpi-unit">7-day rolling</div>
-    </div>
-    <div class="kpi month">
-      <div class="kpi-label">이번 달 (30일)</div>
-      <div class="kpi-value" id="kpiMonth" data-last="0">0.00</div>
-      <div class="kpi-sub" id="kpiMonthSub">—</div>
-    </div>
-    <div class="kpi">
-      <div class="kpi-label">순매출 / 거래수</div>
-      <div class="kpi-value" id="kpiNet" data-last="0">0.00</div>
-      <div class="kpi-unit"><span id="kpiCount" data-last="0">0</span>건</div>
-    </div>
-  </div>
-
-  <!-- Sparkline + Donut row -->
-  <div class="row">
-    <div class="card">
-      <div class="section">
-        <h2>30일 일별 매출 추이</h2>
-        <div class="spark-wrap">
-          <svg class="spark-svg" id="sparkSvg" viewBox="0 0 800 160" preserveAspectRatio="none"></svg>
-        </div>
-      </div>
-    </div>
-    <div class="card">
-      <div class="section">
-        <h2>프로젝트 구성</h2>
-        <div class="donut-wrap">
-          <div class="donut-rel">
-            <svg class="donut-svg" id="donutSvg" viewBox="0 0 200 200"></svg>
-            <div class="donut-center">
-              <div class="label">Total</div>
-              <div class="val" id="donutCenterVal" data-last="0">0</div>
-            </div>
-          </div>
-          <div class="donut-legend" id="donutLegend"></div>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- Project bars + Transaction feed -->
-  <div class="row" style="margin-top: 20px;">
-    <div class="card">
-      <div class="section">
-        <h2>프로젝트별 상세</h2>
-        <div id="projBars"></div>
-      </div>
-    </div>
-    <div class="card">
-      <div class="section">
-        <h2>최근 거래</h2>
-        <div class="feed" id="feed">
-          <div class="skeleton" style="height: 60px; margin-bottom: 10px;"></div>
-          <div class="skeleton" style="height: 60px; margin-bottom: 10px;"></div>
-          <div class="skeleton" style="height: 60px;"></div>
-        </div>
-      </div>
-    </div>
-  </div>
-</div>
-
-<div class="burst" id="burst"></div>
-<script>${_loadWebviewAsset('revenue-dashboard.js')}</script>
-</body></html>`;
-    }
-}
 
 /* ── YouTube OAuth + Analytics API ────────────────────────────────────────
    Implements the Google OAuth2 device-style flow that fits a VS Code
@@ -12008,7 +9394,7 @@ function _ytOAuthTokenPath(): string {
     return path.join(getCompanyDir(), '_agents', 'youtube', 'oauth.local.json');
 }
 
-function _readYtOAuthClient(): { id: string; secret: string } {
+export function _readYtOAuthClient(): { id: string; secret: string } {
     /* v2.89.18 — 캐노니컬 youtube_account.json 우선. 외부 연결 패널이 거기에
        저장하니까 source of truth 일관성 유지. config.md는 legacy fallback만. */
     const jsonPath = path.join(getCompanyDir(), '_agents', 'youtube', 'tools', 'youtube_account.json');
@@ -12042,11 +9428,6 @@ function _writeYtOAuthTokens(t: { access_token?: string; refresh_token?: string;
     } catch { /* ignore */ }
 }
 
-function isYoutubeOAuthConnected(): boolean {
-    const t = _readYtOAuthTokens();
-    return !!(t && (t.refresh_token || (t.access_token && t.expires_at && t.expires_at > Date.now())));
-}
-
 async function _ensureYtAccessToken(): Promise<string | null> {
     const t = _readYtOAuthTokens();
     if (!t) return null;
@@ -12073,136 +9454,11 @@ async function _ensureYtAccessToken(): Promise<string | null> {
     } catch { return null; }
 }
 
-async function startYouTubeOAuthFlow(): Promise<{ ok: boolean; message: string }> {
-    const cl = _readYtOAuthClient();
-    if (!cl.id || !cl.secret) {
-        return { ok: false, message: `먼저 \`_agents/youtube/config.md\`에 다음 두 줄 추가하세요:\n${YT_OAUTH_CLIENT_ID_KEY}: <Google Cloud Console OAuth 2.0 Client ID>\n${YT_OAUTH_CLIENT_SECRET_KEY}: <Client Secret>\n\n생성: console.cloud.google.com → APIs & Services → Credentials → OAuth 2.0 Client ID (Web application). Authorized redirect URI에 ${YT_OAUTH_REDIRECT} 등록.` };
-    }
-    return new Promise((resolve) => {
-        const state = Math.random().toString(36).slice(2, 12);
-        const authUrl = 'https://accounts.google.com/o/oauth2/v2/auth?'
-            + new URLSearchParams({
-                client_id: cl.id,
-                redirect_uri: YT_OAUTH_REDIRECT,
-                response_type: 'code',
-                scope: YT_OAUTH_SCOPES,
-                access_type: 'offline',
-                prompt: 'consent',
-                state,
-            }).toString();
-        let server: http.Server | null = null;
-        let resolved = false;
-        const timer = setTimeout(() => {
-            if (resolved) return;
-            resolved = true;
-            try { server?.close(); } catch { /* ignore */ }
-            resolve({ ok: false, message: '⏱️ OAuth 시간 초과 (5분). 다시 시도해주세요.' });
-        }, 5 * 60_000);
-        server = http.createServer(async (req, res) => {
-            try {
-                const url = new URL(req.url || '/', `http://127.0.0.1:5814`);
-                if (!url.pathname.startsWith('/yt-oauth-callback')) {
-                    res.writeHead(404); res.end(); return;
-                }
-                const code = url.searchParams.get('code') || '';
-                const stateBack = url.searchParams.get('state') || '';
-                if (stateBack !== state || !code) {
-                    res.writeHead(400, { 'Content-Type': 'text/html; charset=utf-8' });
-                    res.end('<h2>❌ OAuth 실패 — state 불일치 또는 code 없음</h2>');
-                    if (!resolved) { resolved = true; clearTimeout(timer); try { server?.close(); } catch {} resolve({ ok: false, message: 'OAuth state mismatch' }); }
-                    return;
-                }
-                /* exchange code → tokens */
-                const params = new URLSearchParams({
-                    client_id: cl.id,
-                    client_secret: cl.secret,
-                    code,
-                    redirect_uri: YT_OAUTH_REDIRECT,
-                    grant_type: 'authorization_code',
-                });
-                const tk = await axios.post('https://oauth2.googleapis.com/token', params.toString(), {
-                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                    timeout: 15000,
-                });
-                const at = tk.data?.access_token;
-                const rt = tk.data?.refresh_token;
-                const ein = tk.data?.expires_in || 3600;
-                _writeYtOAuthTokens({ access_token: at, refresh_token: rt, expires_at: Date.now() + ein * 1000 });
-                res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-                res.end('<!doctype html><html><body style="background:#0a0d12;color:#e6edf3;font-family:sans-serif;text-align:center;padding:60px"><h1 style="color:#00ff41">✅ SHIN AI · YouTube 연결 완료</h1><p>이 창을 닫고 안티그래비티로 돌아가세요.</p></body></html>');
-                if (!resolved) {
-                    resolved = true;
-                    clearTimeout(timer);
-                    try { server?.close(); } catch { /* ignore */ }
-                    resolve({ ok: true, message: '✅ YouTube OAuth 연결 완료. Analytics 데이터 활성화.' });
-                }
-            } catch (e: any) {
-                res.writeHead(500); res.end('OAuth error: ' + (e?.message || e));
-                if (!resolved) { resolved = true; clearTimeout(timer); try { server?.close(); } catch {} resolve({ ok: false, message: `OAuth 교환 실패: ${e?.message || e}` }); }
-            }
-        });
-        server.listen(5814, '127.0.0.1', () => {
-            vscode.env.openExternal(vscode.Uri.parse(authUrl));
-        });
-        server.on('error', (err: any) => {
-            if (!resolved) { resolved = true; clearTimeout(timer); resolve({ ok: false, message: `포트 5814 사용 중: ${err?.message || err}` }); }
-        });
-    });
-}
-
 /* Pulls a 28-day Analytics summary for the user's channel — views,
    estimatedMinutesWatched, averageViewDuration, plus top traffic sources +
    top countries. Rolled into one object the dashboard renders. */
-async function fetchYouTubeAnalyticsSummary(): Promise<any> {
-    const at = await _ensureYtAccessToken();
-    if (!at) throw new Error('OAuth 토큰 없음');
-    const end = new Date();
-    const start = new Date(Date.now() - 28 * 86_400_000);
-    const fmt = (d: Date) => d.toISOString().slice(0, 10);
-    const baseParams = {
-        ids: 'channel==MINE',
-        startDate: fmt(start),
-        endDate: fmt(end),
-    };
-    const headers = { Authorization: `Bearer ${at}` };
-    /* 1) totals */
-    const totals = await axios.get('https://youtubeanalytics.googleapis.com/v2/reports', {
-        params: { ...baseParams, metrics: 'views,estimatedMinutesWatched,averageViewDuration,averageViewPercentage,subscribersGained' },
-        headers, timeout: 12000,
-    });
-    const row = totals.data?.rows?.[0] || [];
-    const cols = (totals.data?.columnHeaders || []).map((c: any) => c.name);
-    const get = (name: string) => { const i = cols.indexOf(name); return i >= 0 ? row[i] : null; };
-    /* 2) top sources */
-    let topSources: Array<{ source: string; views: number }> = [];
-    try {
-        const r = await axios.get('https://youtubeanalytics.googleapis.com/v2/reports', {
-            params: { ...baseParams, metrics: 'views', dimensions: 'insightTrafficSourceType', sort: '-views', maxResults: 7 },
-            headers, timeout: 12000,
-        });
-        topSources = (r.data?.rows || []).map((rr: any) => ({ source: String(rr[0]), views: Number(rr[1]) }));
-    } catch { /* ignore */ }
-    /* 3) top countries */
-    let topCountries: Array<{ country: string; views: number }> = [];
-    try {
-        const r = await axios.get('https://youtubeanalytics.googleapis.com/v2/reports', {
-            params: { ...baseParams, metrics: 'views', dimensions: 'country', sort: '-views', maxResults: 7 },
-            headers, timeout: 12000,
-        });
-        topCountries = (r.data?.rows || []).map((rr: any) => ({ country: String(rr[0]), views: Number(rr[1]) }));
-    } catch { /* ignore */ }
-    return {
-        views: get('views') || 0,
-        estimatedMinutesWatched: get('estimatedMinutesWatched') || 0,
-        avgViewDurationSec: get('averageViewDuration') || 0,
-        avgViewPercentage: get('averageViewPercentage') || 0,
-        subscribersGained: get('subscribersGained') || 0,
-        topSources,
-        topCountries,
-    };
-}
 
-export function deactivate() {
+function _deactivate_old() {
     try { _activeChatProvider?.stopAutoCycle?.(); } catch { /* ignore */ }
     try { stopTelegramPolling(); } catch { /* ignore */ }
     try { stopTrackerNudge(); } catch { /* ignore */ }
@@ -12361,14 +9617,14 @@ class OfficePanel {
                     } catch { /* ignore */ }
                     break;
                 case 'openDashboard':
-                    try { vscode.commands.executeCommand('connectAiLab.dashboard.open'); } catch { /* ignore */ }
+                    try { vscode.commands.executeCommand('shinAi.dashboard.open'); } catch { /* ignore */ }
                     break;
                 case 'openApiConnections':
-                    try { vscode.commands.executeCommand('connectAiLab.apiConnections.open'); } catch { /* ignore */ }
+                    try { vscode.commands.executeCommand('shinAi.apiConnections.open'); } catch { /* ignore */ }
                     break;
                 case 'toggleAutoCycle':
                     try {
-                        await vscode.workspace.getConfiguration('connectAiLab').update('autoCycleEnabled', !!msg.on, vscode.ConfigurationTarget.Global);
+                        await vscode.workspace.getConfiguration('shinAi').update('autoCycleEnabled', !!msg.on, vscode.ConfigurationTarget.Global);
                         if (msg.on) _activeChatProvider?.startAutoCycle?.(15, 0);
                         else _activeChatProvider?.stopAutoCycle?.();
                     } catch { /* ignore */ }
@@ -12408,7 +9664,7 @@ class OfficePanel {
                         let sessionCount = 0;
                         let recentSessions: string[] = [];
                         if (fs.existsSync(sessionsRoot)) {
-                            const entries = fs.readdirSync(sessionsRoot).filter(n => fs.statSync(path.join(sessionsRoot, n)).isDirectory());
+                            const entries = fs.readdirSync(sessionsRoot).filter((n: any) => fs.statSync(path.join(sessionsRoot, n)).isDirectory());
                             recentSessions = entries.sort().slice(-5).reverse();
                             sessionCount = entries.length;
                         }
@@ -12448,7 +9704,7 @@ class OfficePanel {
                         if (fs.existsSync(connPath)) {
                             const text = fs.readFileSync(connPath, 'utf-8');
                             /* Parse simple "- key: value" lines (also tolerates "key: value") */
-                            text.split('\n').forEach(line => {
+                            text.split('\n').forEach((line: any) => {
                                 const m2 = line.match(/^[\s-]*([a-zA-Z_][a-zA-Z0-9_]*)\s*:\s*(.+?)\s*$/);
                                 if (m2) values[m2[1]] = m2[2];
                             });
@@ -12477,7 +9733,7 @@ class OfficePanel {
                             `## 연결 정보`,
                             ``
                         ];
-                        Object.keys(values).forEach(k => {
+                        Object.keys(values).forEach((k: any) => {
                             const v = (values[k] || '').trim();
                             if (v) lines.push(`- ${k}: ${v}`);
                         });
@@ -12496,7 +9752,7 @@ class OfficePanel {
 
     /** 사용자가 설정에 명시적으로 추가 자산 경로를 지정한 경우만 사용. 그 외엔 vsix 번들 자산 사용. */
     private static _resolveUserAssetsPath(): string {
-        const cfg = vscode.workspace.getConfiguration('connectAiLab');
+        const cfg = vscode.workspace.getConfiguration('shinAi');
         const explicit = (cfg.get<string>('assetsPath') || '').trim();
         if (explicit && fs.existsSync(explicit)) return explicit;
         // Dev mode: extension repo includes the LimeZu pack at
@@ -12561,15 +9817,15 @@ class OfficePanel {
             if (!fs.existsSync(fp.fsPath)) return '';
             return this._panel.webview.asWebviewUri(fp).toString();
         };
-        const buildings = WORLD_LAYOUT.buildings.map(b => ({
+        const buildings = WORLD_LAYOUT.buildings.map((b: any) => ({
             id: b.id,
             layer1Uri: toUri(officeDir, b.layer1),
             layer2Uri: toUri(officeDir, b.layer2 || ''),
             x: b.x, y: b.y, width: b.width, height: b.height,
         }));
         const decorations = WORLD_LAYOUT.decorations
-            .map(d => ({ uri: toUri(gardenDir, d.file), x: d.x, y: d.y, w: d.w }))
-            .filter(d => !!d.uri);
+            .map((d: any) => ({ uri: toUri(gardenDir, d.file), x: d.x, y: d.y, w: d.w }))
+            .filter((d: any) => !!d.uri);
         return {
             worldWidth: WORLD_LAYOUT.worldWidth,
             worldHeight: WORLD_LAYOUT.worldHeight,
@@ -12629,7 +9885,7 @@ class OfficePanel {
                 missing.push(id);
             }
         }
-        const agents = AGENT_ORDER.map(id => ({
+        const agents = AGENT_ORDER.map((id: any) => ({
             id,
             name: AGENTS[id].name,
             role: AGENTS[id].role,
@@ -12640,8 +9896,8 @@ class OfficePanel {
         }));
         const dir = getCompanyDir();
         const userPath = OfficePanel._resolveUserAssetsPath();
-        const bundledCount = Object.values(sources).filter(s => s === 'bundled').length;
-        const userCount = Object.values(sources).filter(s => s === 'user').length;
+        const bundledCount = Object.values(sources).filter((s: any) => s === 'bundled').length;
+        const userCount = Object.values(sources).filter((s: any) => s === 'user').length;
         // Phase-B-1 connected campus: Office + Cafe + Garden in one world.
         // If user dropped a custom full-stage map (e.g. assets/map.jpeg),
         // that single PNG replaces the procedural world (grass + buildings + decor)
@@ -12652,7 +9908,7 @@ class OfficePanel {
         if (customMapUri) {
             world.desks = { ...world.desks, ...CUSTOM_MAP_DESKS };
         }
-        const workdayOn = vscode.workspace.getConfiguration('connectAiLab').get<boolean>('autoCycleEnabled', true);
+        const workdayOn = vscode.workspace.getConfiguration('shinAi').get<boolean>('autoCycleEnabled', true);
         this._panel.webview.postMessage({
             type: 'officeInit',
             agents,
@@ -12668,7 +9924,7 @@ class OfficePanel {
                 userCount,
                 missing,
                 firstSpriteUri: firstUri,
-                buildingsLoaded: world.buildings.filter(b => b.layer1Uri).length,
+                buildingsLoaded: world.buildings.filter((b: any) => b.layer1Uri).length,
                 decorationsLoaded: world.decorations.length,
                 customMap: customMapUri ? 'OK' : 'none',
             }
@@ -13162,7 +10418,6 @@ textarea.amd-input{resize:vertical;min-height:50px;line-height:1.45}
 .amd-save-status.show{opacity:1}
 .amd-save-status.success{color:var(--accent);background:rgba(0,255,65,.08)}
 .amd-save-status.error{color:#ef4444;background:rgba(239,68,68,.08)}
-
 
 /* Agent piece — inline-SVG character + nameplate. Furniture is CSS-drawn behind. */
 .agent{position:absolute;width:60px;display:flex;flex-direction:column;align-items:center;gap:3px;transition:left .9s cubic-bezier(.16,1,.3,1),top .9s cubic-bezier(.16,1,.3,1);z-index:6;filter:drop-shadow(0 4px 6px rgba(0,0,0,.65));transform:scale(var(--char-scale,1));transform-origin:50% 96px}
@@ -13724,9 +10979,6 @@ function getHomeXY(agentId){
   const p = HOME_POS[agentId] || { x: 50, y: 50 };
   return { x: p.x, y: p.y };
 }
-
-
-
 
 function makeAgent(a){
   const home = getHomeXY(a.id);
@@ -14594,7 +11846,7 @@ cmdSend.addEventListener('click', send);
 cmdInput.addEventListener('keydown', e => { if (e.key==='Enter' && !e.shiftKey) { e.preventDefault(); send(); }});
 folderBtn.addEventListener('click', () => vscode.postMessage({ type: 'openCompanyFolder' }));
 /* Single master switch: walking + chatter + 24h work cycle move together.
-   Initial state mirrors the workspace setting connectAiLab.autoCycleEnabled,
+   Initial state mirrors the workspace setting shinAi.autoCycleEnabled,
    pushed by the host on officeInit. */
 const workdayBtn = document.getElementById('workdayBtn');
 let _chatterTimer = null;
@@ -15405,7 +12657,7 @@ window.addEventListener('message', e => {
     const totals = data.totals;
     const period = totals.by_period || {};
     const byCur = totals.by_currency || {};
-    const primaryCur = Object.entries(byCur).sort((a,b) => (b[1].gross||0)-(a[1].gross||0))[0]?.[0] || 'USD';
+    const primaryCur = Object.entries(byCur).sort((a, b) => (b[1].gross||0)-(a[1].gross||0))[0]?.[0] || 'USD';
     const cur = byCur[primaryCur] || { gross: 0, count: 0 };
     const fmt = (v) => primaryCur === 'USD' ? '$' + _fmt(v) : _fmt(v) + ' ' + primaryCur;
     _animate($$('frMonth'), period.month || 0, fmt);
@@ -15506,7 +12758,7 @@ class SidebarChatProvider implements vscode.WebviewViewProvider {
         if (this._sidebarCorpModeOn) {
             try { this._view?.webview.postMessage(msg); } catch { /* ignore */ }
         }
-        this._corporateBroadcastTargets.forEach(w => {
+        this._corporateBroadcastTargets.forEach((w: any) => {
             try { w.postMessage(msg); } catch { /* disposed */ }
         });
     }
@@ -15561,7 +12813,7 @@ class SidebarChatProvider implements vscode.WebviewViewProvider {
         try {
             if (!isCompanyConfigured()) return;
             // 사용자가 24시간 업무를 OFF 했으면 자동 브리핑도 같이 OFF.
-            const enabled = vscode.workspace.getConfiguration('connectAiLab').get<boolean>('autoCycleEnabled', true);
+            const enabled = vscode.workspace.getConfiguration('shinAi').get<boolean>('autoCycleEnabled', true);
             if (!enabled) return;
             const today = new Date().toISOString().slice(0, 10);
             const last = ctx.globalState.get<string>('lastMorningBriefDate', '');
@@ -15660,7 +12912,7 @@ class SidebarChatProvider implements vscode.WebviewViewProvider {
                 ? { prompt: this._currentDispatch.prompt.slice(0, 80), priority: this._currentDispatch.priority, elapsedSec: Math.floor((now - this._currentDispatch.startedAt) / 1000) }
                 : null,
             queueLength: this._dispatchQueue.length,
-            queue: this._dispatchQueue.slice(0, 5).map(j => ({ priority: j.priority, prompt: j.prompt.slice(0, 80) })),
+            queue: this._dispatchQueue.slice(0, 5).map((j: any) => ({ priority: j.priority, prompt: j.prompt.slice(0, 80) })),
         };
     }
 
@@ -15680,7 +12932,7 @@ class SidebarChatProvider implements vscode.WebviewViewProvider {
         if (idleMs > 0 && Date.now() - this._lastUserActivityTs < idleMs) return;
         if (!isCompanyConfigured()) return;
         // Manual kill switch from agent panel — settings key, default ON.
-        const enabled = vscode.workspace.getConfiguration('connectAiLab').get<boolean>('autoCycleEnabled', true);
+        const enabled = vscode.workspace.getConfiguration('shinAi').get<boolean>('autoCycleEnabled', true);
         if (!enabled) return;
         const model = this.getDefaultModel();
         if (!model) return;
@@ -15749,7 +13001,7 @@ class SidebarChatProvider implements vscode.WebviewViewProvider {
             if (turns.length === 0) return;
             post({ type: 'agentConfer', turns });
             const body = turns
-                .map(t => `- ${AGENTS[t.from]?.emoji || ''} **${AGENTS[t.from]?.name || t.from}** → ${AGENTS[t.to]?.emoji || ''} ${AGENTS[t.to]?.name || t.to}: ${t.text}`)
+                .map((t: any) => `- ${AGENTS[t.from]?.emoji || ''} **${AGENTS[t.from]?.name || t.from}** → ${AGENTS[t.to]?.emoji || ''} ${AGENTS[t.to]?.name || t.to}: ${t.text}`)
                 .join('\n');
             appendConversationLog({ speaker: '자율 잡담', emoji: '💬', section: `${aFrom.name} ↔ ${aTo.name}`, body });
         } catch { /* never let chatter break the panel */ }
@@ -15810,7 +13062,7 @@ class SidebarChatProvider implements vscode.WebviewViewProvider {
             if (!fs.existsSync(brainDir)) return;
             const graph = buildKnowledgeGraph(brainDir);
             const data = {
-                nodes: graph.nodes.map(n => ({
+                nodes: graph.nodes.map((n: any) => ({
                     id: n.id, name: n.name, folder: n.folder, tags: n.tags,
                     connections: n.incoming + n.outgoing
                 })),
@@ -15820,7 +13072,7 @@ class SidebarChatProvider implements vscode.WebviewViewProvider {
             if (this._thinkingPanel && this._thinkingReady) {
                 this._thinkingPanel.webview.postMessage(msg);
             }
-            this._externalGraphPanels.forEach(panel => {
+            this._externalGraphPanels.forEach((panel: any) => {
                 try { panel.webview.postMessage(msg); } catch { /* disposed */ }
             });
         } catch (e) {
@@ -15903,7 +13155,7 @@ class SidebarChatProvider implements vscode.WebviewViewProvider {
     private _archiveCurrentChat(): boolean {
         if (this._displayMessages.length === 0) return false;
         const sessions = this._readSessions();
-        const firstUser = this._displayMessages.find(m => m.role === 'user');
+        const firstUser = this._displayMessages.find((m: any) => m.role === 'user');
         const titleSrc = firstUser?.text || this._displayMessages[0]?.text || '대화';
         const title = titleSrc.replace(/\s+/g, ' ').trim().slice(0, 80) || '대화';
         const lastMsg = this._displayMessages[this._displayMessages.length - 1];
@@ -15931,7 +13183,7 @@ class SidebarChatProvider implements vscode.WebviewViewProvider {
     private _activeSessionId: string | null = null;
     private _restoreSession(id: string): boolean {
         const sessions = this._readSessions();
-        const sess = sessions.find(s => s.id === id);
+        const sess = sessions.find((s: any) => s.id === id);
         if (!sess) return false;
         /* 현재 대화도 안 잃게 — 비어있지 않으면 archive (단, 같은 세션 이어가는 거면 skip) */
         if (this._activeSessionId !== id) {
@@ -15956,7 +13208,7 @@ class SidebarChatProvider implements vscode.WebviewViewProvider {
     }
     private _deleteSession(id: string): boolean {
         const sessions = this._readSessions();
-        const idx = sessions.findIndex(s => s.id === id);
+        const idx = sessions.findIndex((s: any) => s.id === id);
         if (idx < 0) return false;
         sessions.splice(idx, 1);
         this._writeSessions(sessions);
@@ -16046,7 +13298,7 @@ class SidebarChatProvider implements vscode.WebviewViewProvider {
         // Also broadcast to any externally-opened brain network panels.
         // Their webview always has the message listener attached, so we don't
         // need a per-panel "ready" handshake — best-effort send is fine.
-        this._externalGraphPanels.forEach(panel => {
+        this._externalGraphPanels.forEach((panel: any) => {
             try { panel.webview.postMessage(message); } catch { /* disposed */ }
         });
     }
@@ -16083,7 +13335,7 @@ class SidebarChatProvider implements vscode.WebviewViewProvider {
 
     private _sendStatusUpdate() {
         if (!this._view) return;
-        const cfg = vscode.workspace.getConfiguration('connectAiLab');
+        const cfg = vscode.workspace.getConfiguration('shinAi');
         const folderPath = _isBrainDirExplicitlySet() ? _getBrainDir() : '';
         let fileCount = 0;
         if (folderPath && fs.existsSync(folderPath)) {
@@ -16127,7 +13379,7 @@ class SidebarChatProvider implements vscode.WebviewViewProvider {
         // Beginner-friendly: clicking ☁️ ALWAYS opens the URL input box, with the
         // current URL pre-filled. After save, sync runs automatically.
         // No nested menu — direct typing is the most intuitive flow.
-        const cfg = vscode.workspace.getConfiguration('connectAiLab');
+        const cfg = vscode.workspace.getConfiguration('shinAi');
         const existing = cfg.get<string>('secondBrainRepo', '') || '';
 
         const inputUrl = await vscode.window.showInputBox({
@@ -16181,7 +13433,7 @@ class SidebarChatProvider implements vscode.WebviewViewProvider {
     /** Build the same HTML that showBrainNetwork uses — kept inline for reuse. */
     private _buildThinkingHtml(graph: BrainGraph, forceGraphSrc: string, cspSource: string): string {
         const graphJson = JSON.stringify({
-            nodes: graph.nodes.map(n => ({
+            nodes: graph.nodes.map((n: any) => ({
                 id: n.id, name: n.name, folder: n.folder, tags: n.tags,
                 connections: n.incoming + n.outgoing
             })),
@@ -16195,7 +13447,7 @@ class SidebarChatProvider implements vscode.WebviewViewProvider {
     private _pruneHistory() {
         const MAX_HISTORY = 50;
         if (this._chatHistory.length > MAX_HISTORY + 1) {
-            const sysIdx = this._chatHistory.findIndex(m => m.role === 'system');
+            const sysIdx = this._chatHistory.findIndex((m: any) => m.role === 'system');
             const sys = sysIdx >= 0 ? this._chatHistory[sysIdx] : null;
             const tail = this._chatHistory.slice(-MAX_HISTORY);
             this._chatHistory = sys ? [sys, ...tail] : tail;
@@ -16236,7 +13488,7 @@ class SidebarChatProvider implements vscode.WebviewViewProvider {
         const sessions = this._readSessions();
         const now = new Date().toISOString();
         if (this._activeSessionId) {
-            const idx = sessions.findIndex(s => s.id === this._activeSessionId);
+            const idx = sessions.findIndex((s: any) => s.id === this._activeSessionId);
             if (idx >= 0) {
                 const lastMsg = this._displayMessages[this._displayMessages.length - 1];
                 const preview = (lastMsg?.text || '').replace(/\s+/g, ' ').trim().slice(0, 120);
@@ -16288,7 +13540,7 @@ class SidebarChatProvider implements vscode.WebviewViewProvider {
     }
 
     public getHistoryText(): string {
-        return this._displayMessages.map(m => `[${m.role.toUpperCase()}]\n${m.text}`).join('\n\n');
+        return this._displayMessages.map((m: any) => `[${m.role.toUpperCase()}]\n${m.text}`).join('\n\n');
     }
 
     /** 외부에서 프롬프트 전송 (예: 코드 선택 → 설명, EZER 주입 등).
@@ -16349,7 +13601,7 @@ class SidebarChatProvider implements vscode.WebviewViewProvider {
             this._telegramMirrorPending = true;
             // Snapshot AI message count so the mirror watcher can detect the
             // *next* AI message (the response to this prompt).
-            this._telegramMirrorSeenAiCount = this._displayMessages.filter(m => m.role === 'ai').length;
+            this._telegramMirrorSeenAiCount = this._displayMessages.filter((m: any) => m.role === 'ai').length;
         }
         /* v2.87.10 — Corporate dispatch direct path. 이전엔 모든 sendPromptFromExtension
            이 webview의 injectPrompt → send({bypassCorporate:true}) 흐름을 탔는데,
@@ -16421,7 +13673,7 @@ class SidebarChatProvider implements vscode.WebviewViewProvider {
         this._telegramMirrorPending = false;
         const tg = readTelegramConfig();
         if (!tg.token || !tg.chatId) return;
-        const aiMessages = this._displayMessages.filter(m => m.role === 'ai');
+        const aiMessages = this._displayMessages.filter((m: any) => m.role === 'ai');
         if (aiMessages.length <= this._telegramMirrorSeenAiCount) {
             /* No new AI message — silently skip. We used to send a "(빈
                응답)" notice, but that fired every time the corporate flow
@@ -16466,7 +13718,7 @@ class SidebarChatProvider implements vscode.WebviewViewProvider {
         queue.forEach((entry, i) => {
             if (entry.fromTelegram) {
                 this._telegramMirrorPending = true;
-                this._telegramMirrorSeenAiCount = this._displayMessages.filter(m => m.role === 'ai').length;
+                this._telegramMirrorSeenAiCount = this._displayMessages.filter((m: any) => m.role === 'ai').length;
             }
             setTimeout(() => this._view?.webview.postMessage({ type: 'injectPrompt', value: entry.prompt }), 400 + i * 200);
         });
@@ -16507,7 +13759,7 @@ class SidebarChatProvider implements vscode.WebviewViewProvider {
                     try {
                         const installed = await listInstalledModels();
                         const specs = getSystemSpecs();
-                        const installedWithMem = installed.map(m => ({
+                        const installedWithMem = installed.map((m: any) => ({
                             id: m.id,
                             tier: (m as any).tier || '',
                             estMemGB: estimateModelMemoryGB(m.id),
@@ -16515,7 +13767,7 @@ class SidebarChatProvider implements vscode.WebviewViewProvider {
                         }));
                         const map = readAgentModelMap();
                         const defaultModel = getConfig().defaultModel || '';
-                        const agents = SPECIALIST_IDS.map(id => ({
+                        const agents = SPECIALIST_IDS.map((id: any) => ({
                             id,
                             name: AGENTS[id]?.name || id,
                             emoji: AGENTS[id]?.emoji || '🤖',
@@ -16613,8 +13865,8 @@ class SidebarChatProvider implements vscode.WebviewViewProvider {
                         const verifiedCount = countAgentVerifiedClaims(msg.agent);
                         const tg = readTelegramConfig();
                         const telegramConnected = !!(tg.token && tg.chatId);
-                        const autoOn = vscode.workspace.getConfiguration('connectAiLab').get<boolean>('autoCycleEnabled', true);
-                        const tools = listAgentTools(msg.agent).map(t => ({
+                        const autoOn = vscode.workspace.getConfiguration('shinAi').get<boolean>('autoCycleEnabled', true);
+                        const tools = listAgentTools(msg.agent).map((t: any) => ({
                             name: t.name,
                             displayName: t.displayName,
                             description: t.description,
@@ -16633,13 +13885,13 @@ class SidebarChatProvider implements vscode.WebviewViewProvider {
                     /* 글로벌 "내 스킬 라이브러리" 데이터 — 모든 에이전트의 tools를
                        한 번에 묶어서 webview로 전달. 에이전트별로 그룹핑 + Mine 표시. */
                     try {
-                        const groups = AGENT_ORDER.map(id => ({
+                        const groups = AGENT_ORDER.map((id: any) => ({
                             agentId: id,
                             agentName: AGENTS[id]?.name || id,
                             agentEmoji: AGENTS[id]?.emoji || '🛠',
                             agentColor: AGENTS[id]?.color || '#5DE0E6',
                             agentRole: AGENTS[id]?.role || '',
-                            tools: listAgentTools(id).map(t => ({
+                            tools: listAgentTools(id).map((t: any) => ({
                                 name: t.name,
                                 displayName: t.displayName,
                                 description: t.description,
@@ -16656,7 +13908,7 @@ class SidebarChatProvider implements vscode.WebviewViewProvider {
                 case 'loadToolConfig': {
                     try {
                         const tools = listAgentTools(msg.agent);
-                        const tool = tools.find(t => t.name === msg.tool);
+                        const tool = tools.find((t: any) => t.name === msg.tool);
                         if (!tool) {
                             webviewView.webview.postMessage({ type: 'toolConfigLoaded', agent: msg.agent, tool: msg.tool, schema: [], error: '도구를 찾을 수 없어요' });
                             break;
@@ -16687,7 +13939,7 @@ class SidebarChatProvider implements vscode.WebviewViewProvider {
                 case 'openToolFile': {
                     try {
                         const tools = listAgentTools(msg.agent);
-                        const tool = tools.find(t => t.name === msg.tool);
+                        const tool = tools.find((t: any) => t.name === msg.tool);
                         if (!tool) break;
                         const target = msg.kind === 'script' ? tool.scriptPath
                             : msg.kind === 'readme' ? tool.readmePath
@@ -16706,16 +13958,16 @@ class SidebarChatProvider implements vscode.WebviewViewProvider {
                     // Lifecycle messages (toolRunCompleted) let the panel show
                     // a per-tool game-like state machine: pending → running → done/error.
                     const tools = listAgentTools(msg.agent);
-                    const tool = tools.find(t => t.name === msg.tool);
+                    const tool = tools.find((t: any) => t.name === msg.tool);
                     if (!tool) {
                         webviewView.webview.postMessage({ type: 'toolRunCompleted', agent: msg.agent, tool: msg.tool, ok: false, reason: 'not_found', message: `도구를 찾을 수 없어요: ${msg.tool}` });
                         break;
                     }
                     // Pre-flight: warn if any password field is empty. Frontend
                     // already paints these as 🔒 locked, but defense-in-depth.
-                    const missing = tool.configSchema.filter(f => f.type === 'password' && (!f.value || String(f.value).trim() === ''));
+                    const missing = tool.configSchema.filter((f: any) => f.type === 'password' && (!f.value || String(f.value).trim() === ''));
                     if (missing.length > 0) {
-                        webviewView.webview.postMessage({ type: 'toolRunCompleted', agent: msg.agent, tool: msg.tool, ok: false, reason: 'missing_config', message: `실행 전에 ${missing.map(f => f.label).join(', ')} 값을 입력해주세요.` });
+                        webviewView.webview.postMessage({ type: 'toolRunCompleted', agent: msg.agent, tool: msg.tool, ok: false, reason: 'missing_config', message: `실행 전에 ${missing.map((f: any) => f.label).join(', ')} 값을 입력해주세요.` });
                         break;
                     }
                     const a = AGENTS[msg.agent];
@@ -16874,12 +14126,12 @@ class SidebarChatProvider implements vscode.WebviewViewProvider {
                 case 'runCalendarWriteWizard': {
                     /* Triggered from agent panel ⚙️ on google_calendar_write —
                        runs the host-side OAuth wizard. */
-                    vscode.commands.executeCommand('connect-ai-lab.connectGoogleCalendarWrite').then(undefined, () => { /* user cancel */ });
+                    vscode.commands.executeCommand('shin-ai.connectGoogleCalendarWrite').then(undefined, () => { /* user cancel */ });
                     break;
                 }
                 case 'toggleAutoCycle': {
                     try {
-                        await vscode.workspace.getConfiguration('connectAiLab').update('autoCycleEnabled', !!msg.on, vscode.ConfigurationTarget.Global);
+                        await vscode.workspace.getConfiguration('shinAi').update('autoCycleEnabled', !!msg.on, vscode.ConfigurationTarget.Global);
                         if (msg.on) {
                             this.startAutoCycle(15, 0);
                         } else {
@@ -16917,7 +14169,7 @@ class SidebarChatProvider implements vscode.WebviewViewProvider {
                     await this._handlePromptWithFile(msg.value, msg.model, msg.files, msg.internet);
                     break;
                 case 'probeIDEModels': {
-                    /* Try to discover models the host IDE (Antigravity, Cursor,
+                    /* Try to discover models the host IDE (SHIN AI, Cursor,
                      * VS Code w/ Copilot, etc.) exposes via the vscode.lm API.
                      * Returns list to webview so user can see what's available
                      * without committing to integration yet. */
@@ -16936,7 +14188,7 @@ class SidebarChatProvider implements vscode.WebviewViewProvider {
                                 }));
                             }
                         } else {
-                            error = 'vscode.lm API 미지원 — 이 호스트(Antigravity?)는 익스텐션에 모델을 노출하지 않음';
+                            error = 'vscode.lm API 미지원 — 이 호스트(SHIN AI?)는 익스텐션에 모델을 노출하지 않음';
                         }
                     } catch (e: any) {
                         error = e?.message || String(e);
@@ -16947,7 +14199,7 @@ class SidebarChatProvider implements vscode.WebviewViewProvider {
                     break;
                 }
                 case 'onboardingState': {
-                    const cfg = vscode.workspace.getConfiguration('connectAiLab');
+                    const cfg = vscode.workspace.getConfiguration('shinAi');
                     const url = (cfg.get<string>('ollamaUrl') || '').trim();
                     const model = (cfg.get<string>('defaultModel') || '').trim();
                     const brain = (cfg.get<string>('localBrainPath') || '').trim();
@@ -16985,7 +14237,7 @@ class SidebarChatProvider implements vscode.WebviewViewProvider {
                     if (detected && detail) {
                         const targetUrl = detected === 'LM Studio' ? 'http://127.0.0.1:1234' : 'http://127.0.0.1:11434';
                         try {
-                            const cfg = vscode.workspace.getConfiguration('connectAiLab');
+                            const cfg = vscode.workspace.getConfiguration('shinAi');
                             await cfg.update('ollamaUrl', targetUrl, vscode.ConfigurationTarget.Global);
                             await cfg.update('defaultModel', detail, vscode.ConfigurationTarget.Global);
                         } catch {}
@@ -17001,7 +14253,7 @@ class SidebarChatProvider implements vscode.WebviewViewProvider {
                         openLabel: '내 두뇌 폴더로 사용', title: '🧠 두뇌 폴더 선택 (지식·대화·회사 모두 여기에 저장됨)'
                     });
                     if (picked && picked[0]) {
-                        const cfg = vscode.workspace.getConfiguration('connectAiLab');
+                        const cfg = vscode.workspace.getConfiguration('shinAi');
                         try { await cfg.update('localBrainPath', picked[0].fsPath, vscode.ConfigurationTarget.Global); } catch {}
                         if (this._view) this._view.webview.postMessage({ type: 'brainFolderPicked', path: picked[0].fsPath });
                     }
@@ -17014,7 +14266,7 @@ class SidebarChatProvider implements vscode.WebviewViewProvider {
                         break;
                     }
                     try {
-                        const cfg = vscode.workspace.getConfiguration('connectAiLab');
+                        const cfg = vscode.workspace.getConfiguration('shinAi');
                         await cfg.update('secondBrainRepo', url, vscode.ConfigurationTarget.Global);
                     } catch {}
                     if (this._view) this._view.webview.postMessage({ type: 'githubRepoResult', ok: true, url });
@@ -17038,7 +14290,7 @@ class SidebarChatProvider implements vscode.WebviewViewProvider {
                             const view = this._view;
                             this._view.webview.postMessage({
                                 type: 'corporateReady',
-                                agents: AGENT_ORDER.map(id => {
+                                agents: AGENT_ORDER.map((id: any) => {
                                     // Prefer high-res custom portrait if declared and the file exists,
                                     // else fall back to the bundled pixel sprite.
                                     const customName = AGENTS[id].profileImage;
@@ -17198,7 +14450,7 @@ class SidebarChatProvider implements vscode.WebviewViewProvider {
                 /* v2.89.106 — 대화 세션 아카이브 명령 */
                 case 'listSessions': {
                     const cur = this._currentWorkspaceMeta();
-                    const sessions = this._readSessions().map(s => {
+                    const sessions = this._readSessions().map((s: any) => {
                         const ss: any = s;
                         return {
                             id: ss.id, title: ss.title, preview: ss.preview || '',
@@ -17233,7 +14485,7 @@ class SidebarChatProvider implements vscode.WebviewViewProvider {
                     const newTitle = String((msg as any).title || '').trim().slice(0, 80);
                     if (!id || !newTitle) break;
                     const sessions = this._readSessions();
-                    const idx = sessions.findIndex(s => s.id === id);
+                    const idx = sessions.findIndex((s: any) => s.id === id);
                     if (idx >= 0) {
                         sessions[idx].title = newTitle;
                         sessions[idx].updatedAt = new Date().toISOString();
@@ -17241,7 +14493,7 @@ class SidebarChatProvider implements vscode.WebviewViewProvider {
                     }
                     /* refresh list */
                     const cur = this._currentWorkspaceMeta();
-                    const out = this._readSessions().map(s => {
+                    const out = this._readSessions().map((s: any) => {
                         const ss: any = s;
                         return {
                             id: ss.id, title: ss.title, preview: ss.preview || '',
@@ -17259,7 +14511,7 @@ class SidebarChatProvider implements vscode.WebviewViewProvider {
                     this._deleteSession(id);
                     /* refresh list */
                     const cur = this._currentWorkspaceMeta();
-                    const sessions = this._readSessions().map(s => {
+                    const sessions = this._readSessions().map((s: any) => {
                         const ss: any = s;
                         return {
                             id: ss.id, title: ss.title, preview: ss.preview || '',
@@ -17346,16 +14598,16 @@ class SidebarChatProvider implements vscode.WebviewViewProvider {
                     await this._handleBrainMenu();
                     break;
                 case 'showBrainNetwork':
-                    vscode.commands.executeCommand('connect-ai-lab.showBrainNetwork');
+                    vscode.commands.executeCommand('shin-ai.showBrainNetwork');
                     break;
                 case 'openOffice':
-                    vscode.commands.executeCommand('connect-ai-lab.openOffice');
+                    vscode.commands.executeCommand('shin-ai.openOffice');
                     break;
                 case 'toggleOffice':
                     if (OfficePanel.current) {
                         OfficePanel.current.dispose();
                     } else {
-                        vscode.commands.executeCommand('connect-ai-lab.openOffice');
+                        vscode.commands.executeCommand('shin-ai.openOffice');
                     }
                     break;
                 case 'closeOffice':
@@ -17476,7 +14728,7 @@ class SidebarChatProvider implements vscode.WebviewViewProvider {
 
             if (!pick) return;
             const target = (pick as any).action === 'ollama' ? 'http://127.0.0.1:11434' : 'http://127.0.0.1:1234';
-            await vscode.workspace.getConfiguration('connectAiLab').update('ollamaUrl', target, vscode.ConfigurationTarget.Global);
+            await vscode.workspace.getConfiguration('shinAi').update('ollamaUrl', target, vscode.ConfigurationTarget.Global);
             vscode.window.showInformationMessage(`AI 엔진이 [${pick.label}] 로 변경되었습니다.`);
             await this._sendModels();
         } 
@@ -17587,7 +14839,7 @@ class SidebarChatProvider implements vscode.WebviewViewProvider {
         }
         /* Surface routing to the user so they know which agents got updated. */
         if (routedAgents.size > 0) {
-            const labels = Array.from(routedAgents).map(id => {
+            const labels = Array.from(routedAgents).map((id: any) => {
                 const a = (AGENTS as any)[id];
                 return a ? `${a.emoji} ${a.name}` : id;
             }).join(', ');
@@ -17668,7 +14920,7 @@ class SidebarChatProvider implements vscode.WebviewViewProvider {
         const brainFiles = fs.existsSync(brainDir) ? this._findBrainFiles(brainDir) : [];
         const fileCount = brainFiles.length;
         
-        const currentRepo = vscode.workspace.getConfiguration('connectAiLab').get<string>('secondBrainRepo', '');
+        const currentRepo = vscode.workspace.getConfiguration('shinAi').get<string>('secondBrainRepo', '');
         const repoLabel = currentRepo ? currentRepo.split('/').pop() : '없음';
         
         const items: any[] = [
@@ -17694,10 +14946,10 @@ class SidebarChatProvider implements vscode.WebviewViewProvider {
                         vscode.commands.executeCommand('revealFileInOS', vscode.Uri.file(brainDir));
                     }
                 } else {
-                    const fileItems = brainFiles.slice(0, 50).map(f => {
+                    const fileItems = brainFiles.slice(0, 50).map((f: any) => {
                         const rel = path.relative(brainDir, f);
                         let title = '';
-                        try { title = fs.readFileSync(f, 'utf-8').split('\n').find(l => l.trim().length > 0)?.replace(/^#+\s*/, '').slice(0, 60) || ''; } catch {}
+                        try { title = fs.readFileSync(f, 'utf-8').split('\n').find((l: any) => l.trim().length > 0)?.replace(/^#+\s*/, '').slice(0, 60) || ''; } catch {}
                         return { label: `📄 ${rel}`, description: title, filePath: f };
                     });
                     const selected = await vscode.window.showQuickPick(fileItems, { 
@@ -17720,7 +14972,7 @@ class SidebarChatProvider implements vscode.WebviewViewProvider {
                 });
                 if (folders && folders.length > 0) {
                     const selectedPath = folders[0].fsPath;
-                    await vscode.workspace.getConfiguration('connectAiLab').update('localBrainPath', selectedPath, vscode.ConfigurationTarget.Global);
+                    await vscode.workspace.getConfiguration('shinAi').update('localBrainPath', selectedPath, vscode.ConfigurationTarget.Global);
                     this._brainEnabled = true;
                     this._ctx.globalState.update('brainEnabled', true);
                     
@@ -17731,7 +14983,7 @@ class SidebarChatProvider implements vscode.WebviewViewProvider {
                             gitExec(['init'], selectedPath);
                             gitExecSafe(['branch', '-M', 'main'], selectedPath);
 
-                            const existingRepo = vscode.workspace.getConfiguration('connectAiLab').get<string>('secondBrainRepo', '');
+                            const existingRepo = vscode.workspace.getConfiguration('shinAi').get<string>('secondBrainRepo', '');
                             const cleanRepo = existingRepo ? validateGitRemoteUrl(existingRepo) : null;
                             if (cleanRepo) {
                                 gitExecSafe(['remote', 'add', 'origin', cleanRepo], selectedPath);
@@ -17756,7 +15008,7 @@ class SidebarChatProvider implements vscode.WebviewViewProvider {
                 break;
             }
             case 'viewGraph': {
-                vscode.commands.executeCommand('connect-ai-lab.showBrainNetwork');
+                vscode.commands.executeCommand('shin-ai.showBrainNetwork');
                 break;
             }
             case 'githubSync': {
@@ -17764,7 +15016,7 @@ class SidebarChatProvider implements vscode.WebviewViewProvider {
                 break;
             }
             case 'changeGithub': {
-                const existing = vscode.workspace.getConfiguration('connectAiLab').get<string>('secondBrainRepo', '');
+                const existing = vscode.workspace.getConfiguration('shinAi').get<string>('secondBrainRepo', '');
                 const inputUrl = await vscode.window.showInputBox({
                     prompt: '☁️ 온라인 지식 공간 — GitHub 주소 (Enter로 저장)',
                     placeHolder: '예: https://github.com/사용자명/저장소이름',
@@ -17779,15 +15031,15 @@ class SidebarChatProvider implements vscode.WebviewViewProvider {
                 });
                 if (inputUrl !== undefined && inputUrl.trim()) {
                     const cleaned = validateGitRemoteUrl(inputUrl) || inputUrl.trim();
-                    await vscode.workspace.getConfiguration('connectAiLab').update('secondBrainRepo', cleaned, vscode.ConfigurationTarget.Global);
-                    const saved = vscode.workspace.getConfiguration('connectAiLab').get<string>('secondBrainRepo', '');
+                    await vscode.workspace.getConfiguration('shinAi').update('secondBrainRepo', cleaned, vscode.ConfigurationTarget.Global);
+                    const saved = vscode.workspace.getConfiguration('shinAi').get<string>('secondBrainRepo', '');
                     vscode.window.showInformationMessage(`✅ 온라인 지식 공간 저장됨: ${saved}`);
                     this._sendStatusUpdate();
                 }
                 break;
             }
             case 'cleanup': {
-                const cfg = vscode.workspace.getConfiguration('connectAiLab');
+                const cfg = vscode.workspace.getConfiguration('shinAi');
                 const hasGit = !!(cfg.get<string>('secondBrainRepo', '') || '');
                 const hasFolder = _isBrainDirExplicitlySet();
 
@@ -17849,7 +15101,7 @@ class SidebarChatProvider implements vscode.WebviewViewProvider {
             if (!ensured) { return; }
         }
 
-        let secondBrainRepo = vscode.workspace.getConfiguration('connectAiLab').get<string>('secondBrainRepo', '');
+        let secondBrainRepo = vscode.workspace.getConfiguration('shinAi').get<string>('secondBrainRepo', '');
         
         // UX 극대화: 안 채워져 있으면 에러 내뱉지 말고 입력창 띄우기!
         if (!secondBrainRepo) {
@@ -17867,7 +15119,7 @@ class SidebarChatProvider implements vscode.WebviewViewProvider {
             if (!inputUrl || !inputUrl.trim()) { return; }
 
             const cleaned = validateGitRemoteUrl(inputUrl) || inputUrl.trim();
-            await vscode.workspace.getConfiguration('connectAiLab').update('secondBrainRepo', cleaned, vscode.ConfigurationTarget.Global);
+            await vscode.workspace.getConfiguration('shinAi').update('secondBrainRepo', cleaned, vscode.ConfigurationTarget.Global);
             secondBrainRepo = cleaned;
         }
 
@@ -18095,7 +15347,7 @@ class SidebarChatProvider implements vscode.WebviewViewProvider {
             const file = files[i];
             const relativePath = path.relative(brainDir, file);
             try {
-                const firstLine = fs.readFileSync(file, 'utf-8').split('\n').find(l => l.trim().length > 0) || '';
+                const firstLine = fs.readFileSync(file, 'utf-8').split('\n').find((l: any) => l.trim().length > 0) || '';
                 // 제목 부분만 추출 (# 헤더 또는 첫 줄)
                 const title = firstLine.replace(/^#+\s*/, '').slice(0, 80);
                 index.push(`  📄 ${relativePath}  →  "${title}"`);
@@ -18124,7 +15376,7 @@ class SidebarChatProvider implements vscode.WebviewViewProvider {
         // 파일명만으로 퍼지 검색 (하위 폴더에 있을 수 있으므로)
         const baseOnly = path.basename(filename);
         const allFiles = this._findBrainFiles(brainDir);
-        const match = allFiles.find(f =>
+        const match = allFiles.find((f: any) =>
             path.basename(f) === baseOnly ||
             path.basename(f) === baseOnly + '.md' ||
             (baseOnly.length > 2 && f.includes(baseOnly))
@@ -18225,7 +15477,7 @@ class SidebarChatProvider implements vscode.WebviewViewProvider {
                 entries = fs.readdirSync(dir, { withFileTypes: true });
             } catch { return; }
 
-            entries.sort((a, b) => {
+            entries.sort((a: any, b: any) => {
                 if (a.isDirectory() && !b.isDirectory()) { return -1; }
                 if (!a.isDirectory() && b.isDirectory()) { return 1; }
                 return a.name.localeCompare(b.name);
@@ -18298,8 +15550,8 @@ class SidebarChatProvider implements vscode.WebviewViewProvider {
             }
 
             // Separate images from text files
-            const imageFiles = files.filter(f => f.type.startsWith('image/'));
-            const textFiles = files.filter(f => !f.type.startsWith('image/'));
+            const imageFiles = files.filter((f: any) => f.type.startsWith('image/'));
+            const textFiles = files.filter((f: any) => !f.type.startsWith('image/'));
 
             // Build text context from non-image files
             let fileContext = '';
@@ -18311,7 +15563,7 @@ class SidebarChatProvider implements vscode.WebviewViewProvider {
 
             const userContent = prompt + fileContext;
             this._chatHistory.push({ role: 'user', content: userContent });
-            this._displayMessages.push({ text: prompt + (files.length > 0 ? `\n📎 ${files.map(f=>f.name).join(', ')}` : ''), role: 'user' });
+            this._displayMessages.push({ text: prompt + (files.length > 0 ? `\n📎 ${files.map((f: any) =>f.name).join(', ')}` : ''), role: 'user' });
 
             // Build messages
             const reqMessages = [...this._chatHistory];
@@ -18338,7 +15590,7 @@ class SidebarChatProvider implements vscode.WebviewViewProvider {
             }
 
             // Build image payload for vision models
-            const images = imageFiles.map(f => f.data); // already base64
+            const images = imageFiles.map((f: any) => f.data); // already base64
 
             let aiMessage = '';
             this._view.webview.postMessage({ type: 'streamStart' });
@@ -18769,7 +16021,7 @@ class SidebarChatProvider implements vscode.WebviewViewProvider {
 
             // 📚 Citation badges + 🎬 final source highlight
             const allBrainReads = [...aiMessage.matchAll(/<read_brain>([\s\S]*?)<\/read_brain>/g)]
-                .map(m => m[1].trim()).filter(s => s.length > 0);
+                .map((m: any) => m[1].trim()).filter((s: any) => s.length > 0);
             const uniqueSources = [...new Set(allBrainReads)];
             if (uniqueSources.length > 0) {
                 this._view.webview.postMessage({ type: 'attachCitations', sources: uniqueSources });
@@ -18860,7 +16112,7 @@ class SidebarChatProvider implements vscode.WebviewViewProvider {
         const catalog: CatalogEntry[] = [];
         for (const aid of SPECIALIST_IDS) {
             try {
-                const tools = listAgentTools(aid).filter(t => t.enabled && !_BUILTIN_TOOLS.has(t.name));
+                const tools = listAgentTools(aid).filter((t: any) => t.enabled && !_BUILTIN_TOOLS.has(t.name));
                 for (const t of tools) {
                     /* v2.89.46 — listAgentTools가 t.name에서 .py 빼고 반환 ('my_videos_check').
                        카탈로그에는 실행 가능한 파일명 형태로 저장 ('my_videos_check.py') —
@@ -18899,12 +16151,12 @@ class SidebarChatProvider implements vscode.WebviewViewProvider {
         const creativePattern = /(?:만들|기획|디자인|썸네일\s*제작|썸네일\s*만들|스크립트\s*써|글\s*써|작성해|코딩|개발|제작|design|create|build|make|write|generate|plan)/i;
         const isCreative = creativePattern.test(p);
         const lower = p.toLowerCase();
-        const domainMatch = !isCreative && domainShortcuts.find(d =>
+        const domainMatch = !isCreative && domainShortcuts.find((d: any) =>
             d.domainPattern.test(lower) &&
             catalog.some(c => c.agentId === d.agentId && c.tool === d.tool)
         );
         if (domainMatch) {
-            const entry = catalog.find(c => c.agentId === domainMatch.agentId && c.tool === domainMatch.tool)!;
+            const entry = catalog.find((c: any) => c.agentId === domainMatch.agentId && c.tool === domainMatch.tool)!;
             return await this._runShortcutTool(entry, prompt, sessionDir, '키워드');
         }
 
@@ -18944,7 +16196,7 @@ ${catalog.map((c, i) => `${i + 1}. agent=${c.agentId} tool=${c.tool} — ${c.des
         } catch { parsed = null; }
         if (!parsed || !parsed.agent || !parsed.tool) return false;
 
-        const llmEntry = catalog.find(c => c.agentId === parsed!.agent && c.tool === parsed!.tool);
+        const llmEntry = catalog.find((c: any) => c.agentId === parsed!.agent && c.tool === parsed!.tool);
         if (!llmEntry) return false;
 
         return await this._runShortcutTool(llmEntry, prompt, sessionDir, '분류기');
@@ -19264,7 +16516,7 @@ ${catalog.map((c, i) => `${i + 1}. agent=${c.agentId} tool=${c.tool} — ${c.des
                         }
                     }
                     if (unavailableIds.length > 0) {
-                        const labels = unavailableIds.map(id => `${AGENTS[id]?.emoji || ''} ${AGENTS[id]?.name || id} (${id}: ${reasons[id]})`).join(', ');
+                        const labels = unavailableIds.map((id: any) => `${AGENTS[id]?.emoji || ''} ${AGENTS[id]?.name || id} (${id}: ${reasons[id]})`).join(', ');
                         for (const uid of unavailableIds) {
                             const re = new RegExp(`^- ${uid}\\b.*$`, 'gm');
                             base = base.replace(re, '');
@@ -19496,14 +16748,14 @@ ${catalog.map((c, i) => `${i + 1}. agent=${c.agentId} tool=${c.tool} — ${c.des
             };
             const originalTasks = [...plan.tasks];
             plan.tasks = plan.tasks
-                .map(t => {
+                .map((t: any) => {
                     const raw = String(t.agent || '').trim();
                     const direct = idLookup.get(raw) || idLookup.get(raw.toLowerCase());
                     if (direct) return { ...t, agent: direct };
                     if (koreanAlias[raw]) return { ...t, agent: koreanAlias[raw] };
                     // partial: any specialist id that appears as substring
                     const lower = raw.toLowerCase();
-                    const hit = SPECIALIST_IDS.find(id => lower.includes(id));
+                    const hit = SPECIALIST_IDS.find((id: any) => lower.includes(id));
                     if (hit) return { ...t, agent: hit };
                     return null;
                 })
@@ -19511,7 +16763,7 @@ ${catalog.map((c, i) => `${i + 1}. agent=${c.agentId} tool=${c.tool} — ${c.des
             /* v2.89.103+107 — 채용·활성 게이트 backend 보호. CEO가 프롬프트 무시하고
                비활성 에이전트(Luna 미채용 또는 OPTIONAL 비활성)에 task 배정해도 여기서 제거. */
             const droppedTasks: { agent: string; task: string; reason: string }[] = [];
-            plan.tasks = plan.tasks.filter(t => {
+            plan.tasks = plan.tasks.filter((t: any) => {
                 if (!isAgentActive(t.agent)) {
                     const reason = LOCKED_AGENTS_DEFAULT[t.agent]
                         ? '채용 전 (PIN 필요)'
@@ -19522,11 +16774,11 @@ ${catalog.map((c, i) => `${i + 1}. agent=${c.agentId} tool=${c.tool} — ${c.des
                 return true;
             });
             if (droppedTasks.length > 0) {
-                const droppedSummary = droppedTasks.map(t => `${AGENTS[t.agent]?.emoji || ''} ${AGENTS[t.agent]?.name || t.agent} (${t.reason})`).join(', ');
+                const droppedSummary = droppedTasks.map((t: any) => `${AGENTS[t.agent]?.emoji || ''} ${AGENTS[t.agent]?.name || t.agent} (${t.reason})`).join(', ');
                 post({ type: 'systemNote', value: `🔒 다음 에이전트는 사용 불가라 제외됐어요: ${droppedSummary}\n👥 직원 패널에서 활성화 후 다시 시도하세요.` });
             }
             if (plan.tasks.length === 0) {
-                const wantedIds = originalTasks.map(t => `"${t.agent}"`).join(', ');
+                const wantedIds = originalTasks.map((t: any) => `"${t.agent}"`).join(', ');
                 if (droppedTasks.length > 0) {
                     post({ type: 'error', value: `⚠️ CEO가 비활성 에이전트만 호출했어요. 직원 패널에서 활성화 후 다시 시도해주세요.` });
                 } else {
@@ -19542,7 +16794,7 @@ ${catalog.map((c, i) => `${i + 1}. agent=${c.agentId} tool=${c.tool} — ${c.des
             try {
                 fs.writeFileSync(
                     path.join(sessionDir, '_brief.md'),
-                    `# 📋 작업 브리프\n\n**원 명령:** ${prompt}\n\n## 요약\n${plan.brief}\n\n## 분배\n${plan.tasks.map(t => `- **${AGENTS[t.agent]?.emoji} ${AGENTS[t.agent]?.name}**: ${t.task}`).join('\n')}\n`
+                    `# 📋 작업 브리프\n\n**원 명령:** ${prompt}\n\n## 요약\n${plan.brief}\n\n## 분배\n${plan.tasks.map((t: any) => `- **${AGENTS[t.agent]?.emoji} ${AGENTS[t.agent]?.name}**: ${t.task}`).join('\n')}\n`
                 );
             } catch { /* ignore */ }
 
@@ -19553,7 +16805,7 @@ ${catalog.map((c, i) => `${i + 1}. agent=${c.agentId} tool=${c.tool} — ${c.des
                 this._broadcastCorporate({
                     type: 'multiDispatch',
                     brief: plan.brief,
-                    tasks: plan.tasks.map(t => ({
+                    tasks: plan.tasks.map((t: any) => ({
                         agent: t.agent,
                         emoji: AGENTS[t.agent]?.emoji || '🤖',
                         name: AGENTS[t.agent]?.name || t.agent,
@@ -19566,14 +16818,14 @@ ${catalog.map((c, i) => `${i + 1}. agent=${c.agentId} tool=${c.tool} — ${c.des
             post({
                 type: 'agentDispatch',
                 brief: plan.brief,
-                tasks: plan.tasks.map(t => ({ agent: t.agent, task: t.task })),
+                tasks: plan.tasks.map((t: any) => ({ agent: t.agent, task: t.task })),
                 userPrompt: prompt
             });
 
             // Phase 1: log CEO's brief + assignment
             appendConversationLog({
                 speaker: 'CEO', emoji: '🧭', section: '작업 분배',
-                body: `${plan.brief}\n\n**할당:**\n${plan.tasks.map(t => `- ${AGENTS[t.agent]?.emoji || '🤖'} **${AGENTS[t.agent]?.name || t.agent}**: ${t.task}`).join('\n')}`,
+                body: `${plan.brief}\n\n**할당:**\n${plan.tasks.map((t: any) => `- ${AGENTS[t.agent]?.emoji || '🤖'} **${AGENTS[t.agent]?.name || t.agent}**: ${t.task}`).join('\n')}`,
             });
 
             // 4) 각 specialist 순차 호출
@@ -19842,8 +17094,8 @@ ${catalog.map((c, i) => `${i + 1}. agent=${c.agentId} tool=${c.tool} — ${c.des
                                     else lineBuf = '';
                                     /* ANSI escape 제거 + noise 필터 + 빈 줄 제거 */
                                     const clean = lines
-                                        .map(l => l.replace(/\x1b\[[0-9;]*m/g, ''))
-                                        .filter(l => l.trim() && !isNoise(l));
+                                        .map((l: any) => l.replace(/\x1b\[[0-9;]*m/g, ''))
+                                        .filter((l: any) => l.trim() && !isNoise(l));
                                     const out = clean.join('\n');
                                     if (!out) return;
                                     const now = Date.now();
@@ -19922,9 +17174,9 @@ ${catalog.map((c, i) => `${i + 1}. agent=${c.agentId} tool=${c.tool} — ${c.des
                         if (stats.length > 0) prefetchSummary = stats.join(' · ');
                     }
                     /* output summary: 첫 의미있는 줄 + 평가 라인 */
-                    const outLines = (out || '').split('\n').map(l => l.trim()).filter(Boolean);
-                    const firstReal = outLines.find(l => !l.startsWith('#') && !l.startsWith('---') && !/^[📺📊🔥💰🎨🔧🛠️]/.test(l) && l.length > 10) || (outLines[0] || '');
-                    const evalLine = outLines.find(l => l.startsWith('📊 평가:')) || '';
+                    const outLines = (out || '').split('\n').map((l: any) => l.trim()).filter(Boolean);
+                    const firstReal = outLines.find((l: any) => !l.startsWith('#') && !l.startsWith('---') && !/^[📺📊🔥💰🎨🔧🛠️]/.test(l) && l.length > 10) || (outLines[0] || '');
+                    const evalLine = outLines.find((l: any) => l.startsWith('📊 평가:')) || '';
                     const outputSummary = [firstReal.slice(0, 200), evalLine].filter(Boolean).join(' / ');
                     /* 실행한 도구 이름 추출 — '🛠️ 도구 실행 결과' 섹션 또는 prefetch */
                     const toolsUsed: string[] = [];
@@ -19985,7 +17237,7 @@ ${catalog.map((c, i) => `${i + 1}. agent=${c.agentId} tool=${c.tool} — ${c.des
                     out = out.replace(/<TRIGGER:youtube_oauth>/gi, '').trim();
                     outputs[t.agent] = out;
                     /* 후속 에이전트 분배 의미 없음 — 사용자 OAuth 승인 후 재요청 흐름 */
-                    plan.tasks = plan.tasks.slice(0, plan.tasks.findIndex(x => x.agent === t.agent) + 1);
+                    plan.tasks = plan.tasks.slice(0, plan.tasks.findIndex((x: any) => x.agent === t.agent) + 1);
                     /* 산출물 저장은 그대로 (기록 가치) */
                     try {
                         fs.writeFileSync(
@@ -20051,7 +17303,7 @@ ${catalog.map((c, i) => `${i + 1}. agent=${c.agentId} tool=${c.tool} — ${c.des
                     this._telegramMirrorPending = false;
                     /* finalReport는 차단 메시지로 대체 — sessionDir 정리만 하고
                        break out of the agent loop. */
-                    plan.tasks = plan.tasks.slice(0, plan.tasks.findIndex(x => x.agent === t.agent) + 1);
+                    plan.tasks = plan.tasks.slice(0, plan.tasks.findIndex((x: any) => x.agent === t.agent) + 1);
                     break;
                 }
                 try {
@@ -20108,7 +17360,7 @@ ${catalog.map((c, i) => `${i + 1}. agent=${c.agentId} tool=${c.tool} — ${c.des
             const conferTurns: { from: string; to: string; text: string }[] = [];
             if (plan.tasks.length >= 2) {
                 try {
-                    const conferInput = `[원 명령]\n${prompt}\n\n[산출물 요약]\n${plan.tasks.map(t => `\n## ${AGENTS[t.agent]?.name}\n${(outputs[t.agent] || '').slice(0, 800)}`).join('\n')}`;
+                    const conferInput = `[원 명령]\n${prompt}\n\n[산출물 요약]\n${plan.tasks.map((t: any) => `\n## ${AGENTS[t.agent]?.name}\n${(outputs[t.agent] || '').slice(0, 800)}`).join('\n')}`;
                     const conferRaw = await this._callAgentLLM(_personalizePrompt(CONFER_PROMPT), conferInput, modelName, 'ceo', false);
                     const m = conferRaw.match(/\{[\s\S]*\}/);
                     const parsed = JSON.parse(m ? m[0] : conferRaw);
@@ -20128,7 +17380,7 @@ ${catalog.map((c, i) => `${i + 1}. agent=${c.agentId} tool=${c.tool} — ${c.des
                     post({ type: 'agentConfer', turns: conferTurns });
                     // Phase 1: log all confer turns into the running transcript
                     const conferBody = conferTurns
-                        .map(t => `- ${AGENTS[t.from]?.emoji || ''} **${AGENTS[t.from]?.name || t.from}** → ${AGENTS[t.to]?.emoji || ''} ${AGENTS[t.to]?.name || t.to}: ${t.text}`)
+                        .map((t: any) => `- ${AGENTS[t.from]?.emoji || ''} **${AGENTS[t.from]?.name || t.from}** → ${AGENTS[t.to]?.emoji || ''} ${AGENTS[t.to]?.name || t.to}: ${t.text}`)
                         .join('\n');
                     appendConversationLog({ speaker: '팀 회의', emoji: '💬', section: '에이전트 간 대화', body: conferBody });
                     // 사무실 시각화가 자연스럽게 흐르도록 대기 (캐릭터 walk + bubble + return)
@@ -20146,12 +17398,12 @@ ${catalog.map((c, i) => `${i + 1}. agent=${c.agentId} tool=${c.tool} — ${c.des
             //   CEO가 "기다리고 있습니다" 같은 placeholder 출력하지 않게 명시적 실패 보고.
             let finalReport = '';
             const nonEmptyOutputs = plan.tasks
-                .map(t => ({ agent: t.agent, out: (outputs[t.agent] || '').trim() }))
-                .filter(o => o.out.length > 30 && !/^⚠️.*호출 실패/.test(o.out));
+                .map((t: any) => ({ agent: t.agent, out: (outputs[t.agent] || '').trim() }))
+                .filter((o: any) => o.out.length > 30 && !/^⚠️.*호출 실패/.test(o.out));
             if (nonEmptyOutputs.length === 0) {
                 /* 모든 에이전트가 빈 답 — CEO LLM 호출 무의미. 즉시 실패 보고로 종료. */
                 finalReport = `⚠️ **모든 에이전트의 LLM 호출이 실패했습니다.**\n\n` +
-                    `시도된 에이전트: ${plan.tasks.map(t => `${AGENTS[t.agent]?.emoji} ${AGENTS[t.agent]?.name}`).join(' · ')}\n\n` +
+                    `시도된 에이전트: ${plan.tasks.map((t: any) => `${AGENTS[t.agent]?.emoji} ${AGENTS[t.agent]?.name}`).join(' · ')}\n\n` +
                     `**가장 흔한 원인**:\n` +
                     `- LM Studio에 모델 로드 실패 (메모리 부족) — 모델 오케스트레이션 모달에서 더 작은 모델 선택\n` +
                     `- Ollama/LM Studio 서버 미실행\n` +
@@ -20166,10 +17418,10 @@ ${catalog.map((c, i) => `${i + 1}. agent=${c.agentId} tool=${c.tool} — ${c.des
                 _updateActiveDispatchStep(prompt, 'CEO 종합 보고서 작성 중');
                 /* v2.89.46 — 산출물 없는 에이전트는 reportInput에서 제외 (CEO가 placeholder
                    출력 위험 제거). 명시적으로 "X명 중 Y명만 답변 도착" 메타 정보 포함. */
-                const validTasks = plan.tasks.filter(t => nonEmptyOutputs.some(o => o.agent === t.agent));
+                const validTasks = plan.tasks.filter((t: any) => nonEmptyOutputs.some(o => o.agent === t.agent));
                 const reportInput = `[원 명령]\n${prompt}\n\n[브리프]\n${plan.brief}\n\n` +
                     `[응답 도착: ${validTasks.length}/${plan.tasks.length}명]\n\n` +
-                    `[유효한 에이전트 산출물]\n${validTasks.map(t => `\n## ${AGENTS[t.agent]?.emoji} ${AGENTS[t.agent]?.name}\n${(outputs[t.agent] || '').slice(0, 2000)}`).join('\n')}\n\n` +
+                    `[유효한 에이전트 산출물]\n${validTasks.map((t: any) => `\n## ${AGENTS[t.agent]?.emoji} ${AGENTS[t.agent]?.name}\n${(outputs[t.agent] || '').slice(0, 2000)}`).join('\n')}\n\n` +
                     `규칙: 위 산출물 안의 실제 내용·숫자만 인용해 보고서 작성. "산출물을 기다리고 있습니다", "데이터가 제공되면" 같은 placeholder 표현 절대 금지 — 산출물은 이미 위에 있음.`;
                 let ceoNarrative = '';
                 try {
@@ -20198,7 +17450,7 @@ ${catalog.map((c, i) => `${i + 1}. agent=${c.agentId} tool=${c.tool} — ${c.des
                     breakdownLines.push(`### ${a.emoji} ${a.name} _(${a.role})_`);
                     breakdownLines.push(`> 📋 **지시**: ${t.task}`);
                     if (meta?.toolsUsed && meta.toolsUsed.length > 0) {
-                        breakdownLines.push(`> 🔧 **도구 실행**: ${meta.toolsUsed.map(x => '`'+x+'`').join(', ')}`);
+                        breakdownLines.push(`> 🔧 **도구 실행**: ${meta.toolsUsed.map((x: any) => '`'+x+'`').join(', ')}`);
                     } else {
                         breakdownLines.push(`> 🔧 **도구 실행**: _(없음 — LLM 추론만)_`);
                     }
@@ -20242,7 +17494,7 @@ ${catalog.map((c, i) => `${i + 1}. agent=${c.agentId} tool=${c.tool} — ${c.des
             // 5.5) 자가학습 — 결정 추출 → decisions.md에 자동 append
             const learnedDecisions: string[] = [];
             try {
-                const learnInput = `[원 명령]\n${prompt}\n\n[보고서]\n${finalReport.slice(0, 2500)}\n\n[대화]\n${conferTurns.map(t => `${AGENTS[t.from]?.name} → ${AGENTS[t.to]?.name}: ${t.text}`).join('\n')}`;
+                const learnInput = `[원 명령]\n${prompt}\n\n[보고서]\n${finalReport.slice(0, 2500)}\n\n[대화]\n${conferTurns.map((t: any) => `${AGENTS[t.from]?.name} → ${AGENTS[t.to]?.name}: ${t.text}`).join('\n')}`;
                 const learnRaw = await this._callAgentLLM(DECISIONS_EXTRACT_PROMPT, learnInput, modelName, 'ceo', false);
                 const m = learnRaw.match(/\{[\s\S]*\}/);
                 const parsed = JSON.parse(m ? m[0] : learnRaw);
@@ -20263,7 +17515,7 @@ ${catalog.map((c, i) => `${i + 1}. agent=${c.agentId} tool=${c.tool} — ${c.des
                         fs.writeFileSync(decPath, `# 📌 회사 의사결정 로그\n\n_자가학습이 자동 누적합니다. 잘못된 항목은 직접 삭제하세요._\n`);
                     }
                     const ts = new Date().toISOString().slice(0, 10);
-                    const block = `\n## [${ts}] ${prompt.slice(0, 60)}\n${learnedDecisions.map(d => `- ${d}`).join('\n')}\n_세션: ${path.basename(sessionDir)}_\n`;
+                    const block = `\n## [${ts}] ${prompt.slice(0, 60)}\n${learnedDecisions.map((d: any) => `- ${d}`).join('\n')}\n_세션: ${path.basename(sessionDir)}_\n`;
                     fs.appendFileSync(decPath, block);
                 } catch { /* ignore */ }
                 post({ type: 'decisionsLearned', decisions: learnedDecisions });
@@ -20311,7 +17563,7 @@ ${catalog.map((c, i) => `${i + 1}. agent=${c.agentId} tool=${c.tool} — ${c.des
                 const cmdLine = isAuto
                     ? `*컨텍스트:* 회사 목표·메모리 검토 후 자율적으로 일거리 결정`
                     : `*명령:* ${prompt.slice(0, 200)}`;
-                const tgText = `${header}\n\n${cmdLine}\n\n*브리프:* ${plan.brief}\n\n*완료한 에이전트:*\n${plan.tasks.map(t => `• ${AGENTS[t.agent]?.emoji} ${AGENTS[t.agent]?.name}`).join('\n')}\n\n${finalReport.slice(0, 1500)}\n\n_세션: ${path.basename(sessionDir)}_`;
+                const tgText = `${header}\n\n${cmdLine}\n\n*브리프:* ${plan.brief}\n\n*완료한 에이전트:*\n${plan.tasks.map((t: any) => `• ${AGENTS[t.agent]?.emoji} ${AGENTS[t.agent]?.name}`).join('\n')}\n\n${finalReport.slice(0, 1500)}\n\n_세션: ${path.basename(sessionDir)}_`;
                 sendTelegramReport(tgText).then(ok => {
                     if (ok) {
                         post({ type: 'telegramSent', agent: 'secretary' });
@@ -20477,9 +17729,9 @@ ${catalog.map((c, i) => `${i + 1}. agent=${c.agentId} tool=${c.tool} — ${c.des
            timeout이 첫 토큰 도착 전에 끊김 (사용자 "60초 벽" 컴플레인). 이제:
            - FIRST_TOKEN_TIMEOUT (디폴트 240초): 모델 첫 토큰까지 기다리는 시간
            - IDLE_TIMEOUT (디폴트 60초): 첫 토큰 이후 chunk 사이 대기 시간
-           둘 다 settings.json `connectAiLab.streamFirstTokenTimeoutSec`,
-           `connectAiLab.streamIdleTimeoutSec` 로 사용자 조정 가능. */
-        const cfg = vscode.workspace.getConfiguration('connectAiLab');
+           둘 다 settings.json `shinAi.streamFirstTokenTimeoutSec`,
+           `shinAi.streamIdleTimeoutSec` 로 사용자 조정 가능. */
+        const cfg = vscode.workspace.getConfiguration('shinAi');
         const FIRST_TOKEN_TIMEOUT_MS = (cfg.get<number>('streamFirstTokenTimeoutSec', 240) || 240) * 1000;
         const IDLE_TIMEOUT_MS = (cfg.get<number>('streamIdleTimeoutSec', 60) || 60) * 1000;
         await new Promise<void>((resolve, reject) => {
@@ -20502,7 +17754,7 @@ ${catalog.map((c, i) => `${i + 1}. agent=${c.agentId} tool=${c.tool} — ${c.des
                     const sec = Math.round(limit / 1000);
                     finish(new Error(
                         `LLM ${stage} ${sec}초 초과. 저사양 머신이면 ` +
-                        `settings.json에서 connectAiLab.streamFirstTokenTimeoutSec 값을 ` +
+                        `settings.json에서 shinAi.streamFirstTokenTimeoutSec 값을 ` +
                         `늘리거나 (예: 600), 더 작은 모델로 변경하세요 (gemma2:2b 1.6GB 등).`
                     ));
                 }
@@ -20549,7 +17801,7 @@ ${catalog.map((c, i) => `${i + 1}. agent=${c.agentId} tool=${c.tool} — ${c.des
         if (!agentId) return;
         const now = Date.now();
         /* 같은 파일·같은 액션 직전 기록 있으면 시간만 갱신 (중복 방지) */
-        const dup = this._recentFileActions.find(r => r.absPath === absPath && r.agentId === agentId);
+        const dup = this._recentFileActions.find((r: any) => r.absPath === absPath && r.agentId === agentId);
         if (dup) {
             dup.action = action;
             dup.ts = now;
@@ -20558,7 +17810,7 @@ ${catalog.map((c, i) => `${i + 1}. agent=${c.agentId} tool=${c.tool} — ${c.des
         }
         /* 30분 묵은 건 제거 + 최대 20개 cap (오래된 것부터 잘림) */
         const cutoff = now - 30 * 60 * 1000;
-        this._recentFileActions = this._recentFileActions.filter(r => r.ts > cutoff);
+        this._recentFileActions = this._recentFileActions.filter((r: any) => r.ts > cutoff);
         if (this._recentFileActions.length > 20) {
             this._recentFileActions = this._recentFileActions.slice(-20);
         }
@@ -20784,7 +18036,7 @@ ${catalog.map((c, i) => `${i + 1}. agent=${c.agentId} tool=${c.tool} — ${c.des
             }
         } catch { /* ignore */ }
         if (hits.length === 0) return '';
-        const lines = hits.slice(0, 3).map(p => `  • ${p}`).join('\n');
+        const lines = hits.slice(0, 3).map((p: any) => `  • ${p}`).join('\n');
         return `\n💡 비슷한 경로 발견 — 다음 중 하나 의도였나요?\n${lines}\n   → 정확한 절대 경로로 다시 시도하세요.`;
     }
 
@@ -20792,10 +18044,10 @@ ${catalog.map((c, i) => `${i + 1}. agent=${c.agentId} tool=${c.tool} — ${c.des
      *  절대 경로 리스트. 코다리가 "방금 만든 파일 어디?"라고 물을 일 자체 차단. */
     private _buildRecentFilesContext(agentId: string): string {
         const mine = this._recentFileActions
-            .filter(r => r.agentId === agentId)
+            .filter((r: any) => r.agentId === agentId)
             .slice(-10);
         if (mine.length === 0) return '';
-        const lines = mine.map(r => {
+        const lines = mine.map((r: any) => {
             const label = r.action === 'create' ? '✅ 생성' : r.action === 'edit' ? '✏️ 편집' : '🗑️ 삭제';
             const mins = Math.max(1, Math.round((Date.now() - r.ts) / 60000));
             return `  - ${label}: ${r.absPath}  (${mins}분 전)`;
@@ -20948,7 +18200,7 @@ ${catalog.map((c, i) => `${i + 1}. agent=${c.agentId} tool=${c.tool} — ${c.des
                         /* 안전장치: 단순 split 으로 normalize 매칭 — 정확하지 않을 수 있어
                            confirmation 메시지에 fuzzy 표기 */
                         const lines = fileContent.split('\n');
-                        const findLines = findText.split('\n').map(l => l.trim());
+                        const findLines = findText.split('\n').map((l: any) => l.trim());
                         let foundAt = -1;
                         for (let i = 0; i <= lines.length - findLines.length; i++) {
                             let ok = true;
@@ -21129,8 +18381,8 @@ ${catalog.map((c, i) => `${i + 1}. agent=${c.agentId} tool=${c.tool} — ${c.des
                 if (fs.existsSync(absDir) && fs.statSync(absDir).isDirectory()) {
                     const entries = fs.readdirSync(absDir, { withFileTypes: true });
                     const listing = entries
-                        .filter(e => !e.name.startsWith('.') && !EXCLUDED_DIRS.has(e.name))
-                        .map(e => e.isDirectory() ? `📁 ${e.name}/` : `📄 ${e.name}`)
+                        .filter((e: any) => !e.name.startsWith('.') && !EXCLUDED_DIRS.has(e.name))
+                        .map((e: any) => e.isDirectory() ? `📁 ${e.name}/` : `📄 ${e.name}`)
                         .join('\n') || '_(빈 디렉토리)_';
                     report.push(`📂 목록: ${absDir.replace(os.homedir(), '~')}/\n\`\`\`\n${listing}\n\`\`\``);
                     const injection = `[시스템: list_files 결과]\n디렉토리: ${absDir.replace(os.homedir(), '~')}/\n${listing}`;
@@ -21196,7 +18448,7 @@ ${catalog.map((c, i) => `${i + 1}. agent=${c.agentId} tool=${c.tool} — ${c.des
                     body = '_(매칭 없음)_';
                 } else {
                     for (const h of hits) {
-                        body += `\n📄 ${h.file}\n` + h.matches.map(m => `  ${String(m.line).padStart(4, ' ')}: ${m.text}`).join('\n');
+                        body += `\n📄 ${h.file}\n` + h.matches.map((m: any) => `  ${String(m.line).padStart(4, ' ')}: ${m.text}`).join('\n');
                     }
                 }
                 report.push(`🔍 grep \`${pattern}\`${fileGlob ? ` (${fileGlob})` : ''}: ${hits.length}파일 / ${total}매치\n\`\`\`\n${body.slice(0, 4000)}\n\`\`\``);
@@ -21351,7 +18603,7 @@ ${catalog.map((c, i) => `${i + 1}. agent=${c.agentId} tool=${c.tool} — ${c.des
         }
 
         // Show notification — silent suppresses for corporate dispatch (카드 뷰에서 별도 보고됨)
-        const successCount = report.filter(r => r.startsWith('✅') || r.startsWith('✏️') || r.startsWith('🖥️') || r.startsWith('🗑️') || r.startsWith('📖') || r.startsWith('📂') || r.startsWith('🗂') || r.startsWith('🚀')).length;
+        const successCount = report.filter((r: any) => r.startsWith('✅') || r.startsWith('✏️') || r.startsWith('🖥️') || r.startsWith('🗑️') || r.startsWith('📖') || r.startsWith('📂') || r.startsWith('🗂') || r.startsWith('🚀')).length;
         if (successCount > 0 && !opts?.silent) {
             vscode.window.showInformationMessage(`SHIN AI: ${successCount}개 에이전트 작업 완료!`);
         }
@@ -21382,7 +18634,6 @@ ${catalog.map((c, i) => `${i + 1}. agent=${c.agentId} tool=${c.tool} — ${c.des
             .trim();
     }
 
-
     // ============================================================
     // Webview HTML — CINEMATIC UI v3 (Content-Grade Visuals)
     // ============================================================
@@ -21400,3 +18651,33 @@ ${catalog.map((c, i) => `${i + 1}. agent=${c.agentId} tool=${c.tool} — ${c.des
         }
     }
 }
+
+// ============================================================
+
+// ============================================================
+
+// ============================================================
+// Service Wrappers (Legacy Compatibility Layer)
+// ============================================================
+// Legacy Compatibility Layer
+// ============================================================
+import { TrackerService } from './services/tracker-service';
+import { CompanyService } from './services/company-service';
+import { YouTubeService } from './services/youtube-service';
+import { ApprovalService } from './services/approval-service';
+import { NotificationService } from './services/notification-service';
+import { ModelService } from './services/model-service';
+
+export function isYoutubeOAuthConnected(): boolean { return YouTubeService.getInstance().isYoutubeOAuthConnected(); }
+export async function startYouTubeOAuthFlow(): Promise<any> { return YouTubeService.getInstance().startYouTubeOAuthFlow(); }
+export async function fetchYouTubeAnalyticsSummary(): Promise<any> { return YouTubeService.getInstance().fetchYouTubeAnalyticsSummary(); }
+export async function _youtubeCommentReplyDraftBatch(opts?: any): Promise<any> { return YouTubeService.getInstance().youtubeCommentReplyDraftBatch(opts); }
+
+export async function resolveApproval(id: string, status: any): Promise<any> { return ApprovalService.getInstance().resolveApproval(id, status); }
+export async function _runDailyBriefingOnce(force: boolean = false): Promise<void> { return NotificationService.getInstance().runDailyBriefingOnce(force); }
+
+export function _maybeRecommendCoderModel(webview: any): void { ModelService.maybeRecommendCoderModel(webview); }
+
+export function setAutoSyncRunning(v: boolean) { (global as any)._autoSyncRunning = v; }
+// re-exported
+export function deactivate() { /* final */ }

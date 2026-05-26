@@ -69,7 +69,7 @@ function toast(text, err) {
 
 /* Buttons */
 $('refreshBtn').onclick = () => vscode.postMessage({ type: 'refresh' });
-$('briefBtn').onclick   = () => vscode.postMessage({ type: 'fireBriefing' });
+$('briefBtn').onclick   = () => vscode.postMessage({ type: 'getSystemSpecs' });
 $('queueBtn').onclick   = () => vscode.postMessage({ type: 'queueComments' });
 /* v2.89.24 — 보고 스케줄 모달 */
 $('scheduleBtn').onclick = () => { vscode.postMessage({ type: 'getReportSchedule' }); };
@@ -1120,10 +1120,66 @@ function showAgentDetailModal(a){
   document.addEventListener('keydown', escH);
 }
 
+let _systemSpecsBackdrop = null;
+function showSystemSpecsModal(specs) {
+  if (_systemSpecsBackdrop) return;
+  const bd = document.createElement('div');
+  bd.className = 'adm-backdrop';
+  
+  if (!specs) {
+    bd.innerHTML = `
+      <div class="amr-modal" style="text-align:center; padding:30px;">
+        <button class="adm-close" type="button">×</button>
+        <p>사양 정보를 불러올 수 없습니다.</p>
+      </div>
+    `;
+  } else {
+    const memColor = specs.totalRamGB >= 32 ? 'ok' : (specs.totalRamGB >= 16 ? '' : 'warn');
+    const tierHint = specs.safeModelBudgetGB >= 30 ? '대형 모델(32B+) 가능'
+      : specs.safeModelBudgetGB >= 12 ? '중형 모델(7~14B) 적합'
+      : specs.safeModelBudgetGB >= 5 ? '소형 모델(3~7B) 권장'
+      : '초소형 모델(1~3B)만 안전';
+
+    bd.innerHTML = `
+      <div class="amr-modal" style="max-width: 450px;">
+        <button class="adm-close" type="button">×</button>
+        <div class="amr-head" style="margin-bottom: 20px;">
+          <h3>🖥️ 내 머신 사양 진단 결과</h3>
+        </div>
+        <div class="amr-diag ${memColor}" style="margin-top:0; text-align:left;">
+          <div style="background:var(--vscode-editor-background); padding:12px; border-radius:6px; margin-bottom:12px; font-size:13px; line-height:1.6;">
+            <p style="margin:4px 0;"><strong>전체 RAM:</strong> ${specs.totalRamGB} GB</p>
+            <p style="margin:4px 0;"><strong>가용 여유 RAM:</strong> ${specs.freeRamGB} GB</p>
+            <p style="margin:4px 0;"><strong>CPU/OS 요약:</strong> ${esc(specs.summary)}</p>
+            ${specs.gpuInfo ? `<p style="margin:4px 0;"><strong>GPU (그래픽카드):</strong> ${esc(specs.gpuInfo)}</p>` : ''}
+            ${specs.isAppleSilicon ? '<p style="margin:4px 0;">💡 <em>Apple Silicon은 통합 메모리를 사용하여 모델 구동에 효율적입니다.</em></p>' : ''}
+          </div>
+          <div style="background:var(--vscode-editor-background); padding:12px; border-radius:6px; font-size:13px; line-height:1.6;">
+            <p style="margin:4px 0; color:var(--vscode-terminal-ansiBrightGreen);"><strong>안전 모델 한도:</strong> ~${specs.safeModelBudgetGB} GB</p>
+            <p style="margin:4px 0; color:var(--vscode-terminal-ansiBrightCyan);"><strong>권장 모델 티어:</strong> ${esc(tierHint)}</p>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  document.body.appendChild(bd);
+  _systemSpecsBackdrop = bd;
+
+  // Events
+  bd.querySelector('.adm-close').onclick = () => { bd.remove(); _systemSpecsBackdrop = null; };
+  bd.onclick = (e) => {
+    if (e.target === bd) { bd.remove(); _systemSpecsBackdrop = null; }
+  };
+}
+
 window.addEventListener('message', e => {
   const m = e.data;
   if (m.type === 'state') render(m);
   else if (m.type === 'toast') toast(m.text, m.err);
+  else if (m.type === 'systemSpecsData') {
+    showSystemSpecsModal(m.specs);
+  }
   else if (m.type === 'skillRunOutput') {
     /* v2.89.12 — 스킬 단독 실행 결과 라이브 표시 */
     const out = document.getElementById('admSkillOut');

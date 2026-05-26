@@ -84,7 +84,7 @@ export function isGitAvailable(): boolean {
     return _gitAvailable;
 }
 
-export type GitErrorKind = 'auth' | 'network' | 'not_repo' | 'conflict' | 'unknown';
+export type GitErrorKind = 'auth' | 'network' | 'not_repo' | 'conflict' | 'rejected' | 'unknown';
 
 /** Translate raw git stderr into a user-actionable Korean message + machine-readable kind. */
 export function classifyGitError(stderr: string): { kind: GitErrorKind; message: string } {
@@ -97,6 +97,8 @@ export function classifyGitError(stderr: string): { kind: GitErrorKind; message:
         return { kind: 'not_repo', message: '📂 git 저장소가 아닙니다' };
     if (s.includes('conflict') || s.includes('merge'))
         return { kind: 'conflict', message: '⚠️ 병합 충돌이 발생했습니다' };
+    if (s.includes('rejected') || s.includes('fetch first') || s.includes('non-fast-forward'))
+        return { kind: 'rejected', message: '⚠️ 원격 저장소에 새로운 변경사항이 있어 푸시가 거부되었습니다' };
     return { kind: 'unknown', message: `git 오류: ${stderr.trim().slice(0, 200)}` };
 }
 

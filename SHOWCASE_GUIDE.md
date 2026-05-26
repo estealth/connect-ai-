@@ -8,7 +8,7 @@
 
 ```bash
 # 1. 익스텐션 최신 버전 설치
-code --install-extension connect-ai-lab-2.89.150.vsix --force
+code --install-extension shin-ai-2.89.150.vsix --force
 
 # 2. Anti-Gravity Reload Window
 # Cmd+Shift+P → Developer: Reload Window
@@ -180,7 +180,7 @@ curl -s http://127.0.0.1:4825/ping | python3 -m json.tool
 
 ```bash
 # 가장 최신 vsix만 남기고 모두 삭제 (안전)
-ls ~/.antigravity/extensions/ | grep connect-ai-lab | grep -v "2.89.150" | \
+ls ~/.antigravity/extensions/ | grep shin-ai | grep -v "2.89.150" | \
   xargs -I{} rm -rf ~/.antigravity/extensions/{}
 ```
 

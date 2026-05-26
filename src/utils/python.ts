@@ -13,13 +13,13 @@ import { spawn, spawnSync } from 'child_process';
 let _pythonCmdCache: string | null = null;
 
 /* v2.89.152 — 크로스플랫폼 + 자동 감지 + 사용자 override.
-   1. 사용자 설정 connectAiLab.pythonPath 가장 강함
+   1. 사용자 설정 shinAi.pythonPath 가장 강함
    2. 후보 cmd 순차 시도 (which/where 로 실제 존재 확인) — 첫 성공한 거 캐시
    3. 캐시 못 찾으면 fallback 명령 (사용자에게 안내) */
 export function _detectPythonCmd(): string {
     /* 1. 사용자 명시 경로 — 절대 경로 또는 명령 이름. 가장 강함. */
     try {
-        const cfg = vscode.workspace.getConfiguration('connectAiLab');
+        const cfg = vscode.workspace.getConfiguration('shinAi');
         const override = (cfg.get<string>('pythonPath') || '').trim();
         if (override) {
             try {
@@ -83,7 +83,7 @@ export function _pythonMissingHint(): string {
            `🔧 해결:\n` +
            `  1. ${platformHint}\n` +
            `  2. 설치 후 안티그래비티/VS Code 완전 종료 → 재실행 (PATH 새로고침 필요)\n` +
-           `  3. 또는 명령 팔레트 → "⚙️ 설정 열기" → \`connectAiLab.pythonPath\` 에 절대 경로 입력\n` +
+           `  3. 또는 명령 팔레트 → "⚙️ 설정 열기" → \`shinAi.pythonPath\` 에 절대 경로 입력\n` +
            `🔍 본인 PC 의 Python 경로 확인:\n` +
            (process.platform === 'win32' ? '  - PowerShell: `Get-Command python, python3, py`' : '  - 터미널: `which python3 python py`');
 }
